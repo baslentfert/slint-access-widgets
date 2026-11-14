@@ -226,7 +226,11 @@ export component AccessRow inherits Rectangle {
     y: index * state.row-height;
     width: state.row-width;
     height: state.row-height;
-    background: selected ? (fs.has-focus ? Palette.selection-background : Palette.alternate-background) : (touch.has-hover ? Palette.alternate-background : transparent);
+    // A colour for this row's state, e.g. `AccessColors.success-background`
+    // when it is done. Selection and hover go first, so you always see
+    // where you are.
+    in property <brush> background-tint: transparent;
+    background: selected ? (fs.has-focus ? Palette.selection-background : Palette.alternate-background) : (touch.has-hover ? Palette.alternate-background : background-tint);
 
     accessible-role: list-item;
     accessible-label: label;

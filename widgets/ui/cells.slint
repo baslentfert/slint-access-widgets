@@ -7,6 +7,17 @@
 
 import { Palette } from "std-widgets.slint";
 
+// Status colours for rows and messages, light and dark (the "success",
+// "warning" and "error" backgrounds of Microsoft Fluent 2). Normal text
+// stays readable on them (contrast at least 4.5:1). Never use them alone:
+// also say it in words ("✓ Arrived").
+export global AccessColors {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    out property <brush> success-background: dark ? #393D1B : #DFF6DD;
+    out property <brush> warning-background: dark ? #433519 : #FFF4CE;
+    out property <brush> error-background: dark ? #442726 : #FDE7E9;
+}
+
 // A check box look (e.g. "selected"). 16 px box inside a 24 px area (WCAG
 // 2.5.8); a tick, not colour alone (WCAG 1.4.1).
 export component AccessCheckCell inherits Rectangle {

@@ -3,7 +3,7 @@
 // cancels one row. Made with the building blocks (`AccessTableView`,
 // `AccessRow`, cells), so you can put any cells in a row.
 
-import { AccessTableView, AccessRow, AccessTableHeader, AccessCheckCell, AccessProgressCell, AccessTextCell, AccessAnnouncer } from "@access-widgets";
+import { AccessTableView, AccessRow, AccessTableHeader, AccessCheckCell, AccessProgressCell, AccessTextCell, AccessAnnouncer, AccessColors } from "@access-widgets";
 import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
 
 export enum State { idle, waiting, sending, done, failed, cancelled }
@@ -72,6 +72,9 @@ export component AppWindow inherits Window {
                         state: view.state;
                         index: n;
                         selected: it.chosen;
+                        // Done: green; failed: red. The words say it too.
+                        background-tint: it.state == State.done ? AccessColors.success-background
+                            : it.state == State.failed ? AccessColors.error-background : transparent;
                         // Everything the row shows, in words; "sending" also
                         // says why the box can't be changed.
                         label: it.name + ", " + it.size
