@@ -1,0 +1,52 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: de\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: po-bundle\n"
+
+#: ui/table.slint:57
+msgctxt "access-widgets"
+msgid "sorted ascending"
+msgstr "aufsteigend sortiert"
+
+#: ui/table.slint:58
+msgctxt "access-widgets"
+msgid "sorted descending"
+msgstr "absteigend sortiert"
+
+#: ui/table.slint:59
+msgctxt "access-widgets"
+msgid "column header"
+msgstr "Spaltenkopf"
+
+#: ui/table.slint:60
+msgctxt "access-widgets"
+msgid "items"
+msgstr "Einträge"
+
+#: ui/table.slint:61
+msgctxt "access-widgets"
+msgid "Column headers"
+msgstr "Spaltenköpfe"
+
+#: ui/table.slint:62
+msgctxt "access-widgets"
+msgid "No items"
+msgstr "Keine Einträge"
+
+#: ui/table.slint:63
+msgctxt "access-widgets"
+msgid "Loading…"
+msgstr "Wird geladen…"
+
+#: ui/table.slint:65
+msgctxt "access-widgets"
+msgid "{} selected"
+msgstr "{} ausgewählt"
+
+#: ui/table.slint:68
+msgctxt "access-widgets"
+msgid "{} of {} shown"
+msgstr "{} von {} angezeigt"

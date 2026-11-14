@@ -11,3 +11,8 @@ readme = "../README.md"
 
 [dependencies]
 slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2"] }
+
+# Our @tr texts and their translations, for po-bundle (and anyone else).
+[package.metadata.po-bundle]
+slint = "ui"
+translations = "translations"

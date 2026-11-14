@@ -1,0 +1,340 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: po-bundle\n"
+
+#: ui/app.slint:13
+msgctxt "AppWindow"
+msgid "Name"
+msgstr ""
+
+#: ui/app.slint:14
+msgctxt "AppWindow"
+msgid "Size"
+msgstr ""
+
+#: ui/app.slint:15
+msgctxt "AppWindow"
+msgid "Modified"
+msgstr ""
+
+#: ui/app.slint:30
+msgctxt "AppWindow"
+msgid "Filter files"
+msgstr ""
+
+#: ui/app.slint:35 ui/app.slint:37
+msgctxt "AppWindow"
+msgid "Rows"
+msgstr ""
+
+#: ui/app.slint:38
+msgctxt "AppWindow"
+msgid "Compact"
+msgstr ""
+
+#: ui/app.slint:38
+msgctxt "AppWindow"
+msgid "Standard"
+msgstr ""
+
+#: ui/app.slint:38
+msgctxt "AppWindow"
+msgid "Comfortable"
+msgstr ""
+
+#: ui/app.slint:41
+msgctxt "AppWindow"
+msgid "Reload"
+msgstr ""
+
+#: ui/app.slint:44
+msgctxt "AppWindow"
+msgid "Downloads"
+msgstr ""
+
+#: ui/app.slint:51
+msgctxt "AppWindow"
+msgid "No files match the filter"
+msgstr ""
+
+#: ui/app.slint:56
+msgctxt "AppWindow"
+msgid "Opened {}"
+msgstr ""
+
+#: ui/app.slint:60
+msgctxt "AppWindow"
+msgid "Go to the table"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:57
+msgctxt "access-widgets"
+msgid "sorted ascending"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:58
+msgctxt "access-widgets"
+msgid "sorted descending"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:59
+msgctxt "access-widgets"
+msgid "column header"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:60
+msgctxt "access-widgets"
+msgid "items"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:61
+msgctxt "access-widgets"
+msgid "Column headers"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:62
+msgctxt "access-widgets"
+msgid "No items"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:63
+msgctxt "access-widgets"
+msgid "Loading…"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:65
+msgctxt "access-widgets"
+msgid "{} selected"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:68
+msgctxt "access-widgets"
+msgid "{} of {} shown"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "StandardButton"
+msgid "OK"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "StandardButton"
+msgid "Cancel"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "StandardButton"
+msgid "Apply"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "StandardButton"
+msgid "Close"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "StandardButton"
+msgid "Reset"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "StandardButton"
+msgid "Help"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "StandardButton"
+msgid "Yes"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "StandardButton"
+msgid "No"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "StandardButton"
+msgid "Abort"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "StandardButton"
+msgid "Retry"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "StandardButton"
+msgid "Ignore"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "LineEditBase"
+msgid "Undo"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "LineEditBase"
+msgid "Redo"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "LineEditBase"
+msgid "Cut"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "LineEditBase"
+msgid "Copy"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "LineEditBase"
+msgid "Paste"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "LineEditBase"
+msgid "Select All"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "TextEditBase"
+msgid "Cut"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "TextEditBase"
+msgid "Copy"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "TextEditBase"
+msgid "Paste"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "TextEditBase"
+msgid "Select All"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "DatePickerBase"
+msgid "Enter date"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "DatePickerBase"
+msgid "Toggle selection mode"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "DatePickerBase"
+msgid "Previous month"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "DatePickerBase"
+msgid "Next month"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "One-letter abbrev for Sunday"
+msgid "S"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "One-letter abbrev for Monday"
+msgid "M"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "One-letter abbrev for Tuesday"
+msgid "T"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "One-letter abbrev for Wednesday"
+msgid "W"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "One-letter abbrev for Thursday"
+msgid "T"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "One-letter abbrev for Friday"
+msgid "F"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "One-letter abbrev for Saturday"
+msgid "S"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "TimePickerBase"
+msgid "hour"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "TimePickerBase"
+msgid "minute"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "PeriodSelector"
+msgid "AM or PM"
+msgstr ""
+
+#. A text in Slint's own widgets
+#: slint:std-widgets
+msgctxt "Clock"
+msgid "{} Hours or minutes of {}"
+msgstr ""

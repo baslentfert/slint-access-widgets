@@ -17,7 +17,7 @@ fn row(name: &str, size: u64, modified: &str) -> ModelRc<StandardListViewItem> {
 }
 
 fn main() {
-    let count: usize = std::env::args().nth(1).and_then(|a| a.parse().ok()).unwrap_or(2000);
+    let count: usize = std::env::args().skip(1).find_map(|a| a.parse().ok()).unwrap_or(2000);
     let kinds = ["report", "photo", "invoice", "notes", "backup", "setup", "budget", "letter"];
     let exts = ["pdf", "jpg", "pdf", "txt", "zip", "exe", "xlsx", "docx"];
     let days = ["today", "yesterday", "Monday", "last week", "in May"];
@@ -46,6 +46,11 @@ fn main() {
     fill();
 
     let w = AppWindow::new().unwrap();
+    // `--lang nl`: another language than the system's.
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(l) = args.iter().position(|a| a == "--lang").and_then(|i| args.get(i + 1)) {
+        let _ = slint::select_bundled_translation(l);
+    }
     w.set_files(model.clone().into());
     w.set_total(total as i32);
     w.set_selected(selection.model());
