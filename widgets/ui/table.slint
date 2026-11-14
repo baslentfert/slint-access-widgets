@@ -213,6 +213,8 @@ export component AccessRow inherits Rectangle {
     callback typed(string);
     // Space.
     callback toggled(int);
+    // Delete: e.g. remove, or cancel a transfer.
+    callback deleted(int);
     // Menu key or Shift+F10, or a right click: open your context menu.
     callback context-menu(int, length, length);
     callback focus-changed(bool);
@@ -244,6 +246,10 @@ export component AccessRow inherits Rectangle {
     // Only take focus while the table already has it: scrolling with the
     // mouse wheel must not steal focus from elsewhere.
     changed index => { claim(); }
+    // When the table gets shorter or taller (the window or a neighbour
+    // changes size), Slint makes the row slots anew, also the one that had
+    // the focus. The new slot of the current row takes it back.
+    init => { claim(); }
     changed is-current => { claim(); }
     // An explicit request (go-to, focus-current) always wins.
     property <int> tick: state.focus-tick;
@@ -286,6 +292,7 @@ export component AccessRow inherits Rectangle {
             if (e.text == Key.RightArrow) { horizontal(1); return accept; }
             if (e.text == Key.Return) { activated(index); return accept; }
             if (e.text == " ") { toggled(index); return accept; }
+            if (e.text == Key.Delete) { deleted(index); return accept; }
             if (e.text == Key.Menu || (e.text == Key.F10 && e.modifiers.shift)) {
                 context-menu(index, 16px, root.height);
                 return accept;
@@ -311,6 +318,72 @@ export component AccessRow inherits Rectangle {
     }
 }
 
+// One header cell (inside `AccessTableHeader`).
+component HeaderCell inherits Rectangle {
+    in property <TableColumn> column;
+    in property <string> arrow;
+    in property <bool> focused;
+    in property <int> resize-tick;
+    in property <bool> resize-me;
+    in property <length> resize-delta;
+    callback clicked();
+    callback set-width(length);
+
+    min-width: column.width >= 1px ? column.width : max(column.min-width, 32px);
+    max-width: column.width >= 1px ? column.width : 100000px;
+    horizontal-stretch: column.width >= 1px ? 0 : max(column.horizontal-stretch, 0.0001);
+
+    function apply(delta: length) {
+        set-width(max(max(column.min-width, 32px), (column.width >= 1px ? column.width : root.width) + delta));
+    }
+    changed resize-tick => { if (resize-me) { apply(resize-delta); } }
+
+    Text {
+        x: 8px;
+        width: parent.width - 26px;
+        text: column.title;
+        font-weight: 600;
+        color: Palette.foreground;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    Text {
+        x: parent.width - 18px;
+        text: arrow;
+        color: Palette.foreground;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+    // Drag the right edge to resize (keyboard: Ctrl+Left/Right).
+    TouchArea {
+        x: parent.width - 4px;
+        width: 8px;
+        mouse-cursor: col-resize;
+        property <length> start;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) { self.start = self.mouse-x; }
+        }
+        moved => {
+            if (self.pressed) { apply(self.mouse-x - self.start); }
+        }
+    }
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        background: Palette.border;
+    }
+    // Visible focus (WCAG 2.4.7).
+    Rectangle {
+        border-width: focused ? 2px : 0px;
+        border-color: Palette.accent-background;
+        border-radius: 2px;
+    }
+}
+
 // Column headers: one Tab stop. Left/Right picks a column, Enter or Space
 // sorts, Ctrl+Left/Right makes it narrower or wider (also by mouse: drag the
 // edge; WCAG 2.5.7 asks for the keyboard way too). Widths are written back
@@ -320,6 +393,8 @@ export component AccessTableHeader inherits Rectangle {
     in-out property <int> current-column: 0;
     // The column the table is sorted on, -1 = none.
     in-out property <int> sort-column: -1;
+    // False: the headers are just labels (no sorting, no "sorted" words).
+    in property <bool> sortable: true;
     callback sort-ascending(int);
     callback sort-descending(int);
     out property <bool> has-keyboard-focus: fs.has-focus;
@@ -345,6 +420,7 @@ export component AccessTableHeader inherits Rectangle {
     }
 
     function sort(i: int) {
+        if (!sortable) { return; }
         let ascending = !(i == sort-column && columns[i].sort-order == SortOrder.ascending);
         sort-column = i;
         columns[i].sort-order = ascending ? SortOrder.ascending : SortOrder.descending;
@@ -364,6 +440,7 @@ export component AccessTableHeader inherits Rectangle {
     }
 
     fs := FocusScope {
+        focus-on-tab-navigation: sortable;
         key-pressed(e) => {
             if (e.text == Key.LeftArrow && e.modifiers.control) { resize(current-column, -16px); return accept; }
             if (e.text == Key.RightArrow && e.modifiers.control) { resize(current-column, 16px); return accept; }
@@ -376,74 +453,35 @@ export component AccessTableHeader inherits Rectangle {
         }
     }
 
-    HorizontalLayout {
-        for col[i] in columns : cell := Rectangle {
-            min-width: col.width >= 1px ? col.width : max(col.min-width, 32px);
-            max-width: col.width >= 1px ? col.width : 100000px;
-            horizontal-stretch: col.width >= 1px ? 0 : max(col.horizontal-stretch, 0.0001);
-
-            // Each header cell is a button for assistive technology; the
-            // focused one follows `current-column`.
+    // Sortable: buttons. Not sortable: plain labels, and no Tab stop.
+    if sortable : HorizontalLayout {
+        for col[i] in columns : HeaderCell {
             accessible-role: button;
             accessible-label: col.title + sort-text(i);
             accessible-description: AccessTableTexts.column-header;
             accessible-item-index: i;
             accessible-item-count: columns.length;
             accessible-action-default => { sort(i); }
-
-            function apply(delta: length) {
-                columns[i].width = max(max(col.min-width, 32px), (col.width >= 1px ? col.width : cell.width) + delta);
+            column: col;
+            arrow: i != sort-column ? "" : col.sort-order == SortOrder.ascending ? "▲" : col.sort-order == SortOrder.descending ? "▼" : "";
+            focused: fs.has-focus && i == current-column;
+            resize-tick: resize-tick;
+            resize-me: resize-column == i;
+            resize-delta: resize-delta;
+            clicked => {
+                current-column = i;
+                fs.focus();
+                sort(i);
             }
-            property <int> tick: resize-tick;
-            changed tick => { if (resize-column == i) { apply(resize-delta); } }
-
-            Text {
-                x: 8px;
-                width: parent.width - 26px;
-                text: col.title;
-                font-weight: 600;
-                color: Palette.foreground;
-                vertical-alignment: center;
-                overflow: elide;
-                accessible-role: none;
-            }
-            Text {
-                x: parent.width - 18px;
-                text: i != sort-column ? "" : col.sort-order == SortOrder.ascending ? "▲" : col.sort-order == SortOrder.descending ? "▼" : "";
-                color: Palette.foreground;
-                vertical-alignment: center;
-                accessible-role: none;
-            }
-            TouchArea {
-                clicked => {
-                    current-column = i;
-                    fs.focus();
-                    sort(i);
-                }
-            }
-            TouchArea {
-                x: parent.width - 4px;
-                width: 8px;
-                mouse-cursor: col-resize;
-                property <length> start;
-                pointer-event(e) => {
-                    if (e.kind == PointerEventKind.down) { self.start = self.mouse-x; }
-                }
-                moved => {
-                    if (self.pressed) { apply(self.mouse-x - self.start); }
-                }
-            }
-            Rectangle {
-                x: parent.width - 1px;
-                width: 1px;
-                background: Palette.border;
-            }
-            // Visible focus (WCAG 2.4.7).
-            Rectangle {
-                border-width: fs.has-focus && i == current-column ? 2px : 0px;
-                border-color: Palette.accent-background;
-                border-radius: 2px;
-            }
+            set-width(w) => { columns[i].width = w; }
+        }
+    }
+    if !sortable : HorizontalLayout {
+        for col[i] in columns : HeaderCell {
+            accessible-role: text;
+            accessible-label: col.title;
+            column: col;
+            set-width(w) => { columns[i].width = w; }
         }
     }
 }

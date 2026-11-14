@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// Cells for inside an `AccessRow`. They look like controls but never take
+// focus: a table has one Tab stop, and the row handles the keys (Space,
+// Delete, the context menu). What they show must also be in the row's
+// `label`, so a screen reader hears it.
+
+import { Palette } from "std-widgets.slint";
+
+// A check box look (e.g. "selected"). 16 px box inside a 24 px area (WCAG
+// 2.5.8); a tick, not colour alone (WCAG 1.4.1).
+export component AccessCheckCell inherits Rectangle {
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    callback toggled();
+    min-width: 24px;
+    min-height: 24px;
+    accessible-role: none;
+
+    box := Rectangle {
+        width: 16px;
+        height: 16px;
+        border-radius: 3px;
+        border-width: 1px;
+        border-color: enabled ? Palette.foreground : Palette.border;
+        background: checked && enabled ? Palette.accent-background : transparent;
+        opacity: enabled ? 1 : 0.5;
+        Text {
+            text: checked ? "✓" : "";
+            color: Palette.accent-foreground;
+            font-size: 12px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+    TouchArea {
+        enabled: root.enabled;
+        clicked => { toggled(); }
+    }
+}
+
+// A progress bar with its text next to it ("45 %", "Paused"). The text
+// says what the bar shows, so it is never colour or length alone.
+export component AccessProgressCell inherits Rectangle {
+    // 0.0 … 1.0
+    in property <float> progress;
+    in property <string> text;
+    // Paused or failed: a calmer bar.
+    in property <bool> muted;
+    min-width: 120px;
+    accessible-role: none;
+
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: stretch;
+        Rectangle {
+            height: 6px;
+            y: (parent.height - self.height) / 2;
+            horizontal-stretch: 1;
+            min-width: 60px;
+            border-radius: 3px;
+            background: Palette.alternate-background;
+            border-width: 1px;
+            border-color: Palette.border;
+            Rectangle {
+                x: 0;
+                width: parent.width * max(0, min(1, progress));
+                border-radius: 3px;
+                background: muted ? Palette.border : Palette.accent-background;
+            }
+        }
+        Text {
+            text: root.text;
+            color: Palette.foreground;
+            vertical-alignment: center;
+            min-width: 70px;
+            accessible-role: none;
+        }
+    }
+}
+
+// Plain text in a cell: elides when too long.
+export component AccessTextCell inherits Rectangle {
+    in property <string> text;
+    in property <TextHorizontalAlignment> align: left;
+    accessible-role: none;
+    Text {
+        x: 8px;
+        width: parent.width - 16px;
+        text: root.text;
+        horizontal-alignment: align;
+        vertical-alignment: center;
+        overflow: elide;
+        color: Palette.foreground;
+        accessible-role: none;
+    }
+}
+
+// Says something out loud without showing it: a status message (WCAG 4.1.3),
+// e.g. "12 files sent". Saying the same thing twice is heard twice.
+export component AccessAnnouncer inherits Rectangle {
+    property <bool> flip;
+    public function say(t: string) {
+        flip = !flip;
+        news.text = t + (flip ? "" : " ");
+    }
+    width: 1px;
+    height: 1px;
+    news := Text {
+        color: transparent;
+        accessible-role: AccessibleRole.text;
+        accessible-label: self.text;
+        accessible-live-region: polite;
+    }
+}

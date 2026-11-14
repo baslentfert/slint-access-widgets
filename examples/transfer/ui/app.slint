@@ -1,0 +1,152 @@
+// Sending files from a list: tick files (Space, click, Ctrl+A), Send, and
+// watch every row. Pause/Resume and Cancel for all below the list; Delete
+// cancels one row. Made with the building blocks (`AccessTableView`,
+// `AccessRow`, cells), so you can put any cells in a row.
+
+import { AccessTableView, AccessRow, AccessTableHeader, AccessCheckCell, AccessProgressCell, AccessTextCell, AccessAnnouncer } from "@access-widgets";
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export enum State { idle, waiting, sending, done, failed, cancelled }
+
+export struct Item {
+    name: string,
+    size: string,
+    chosen: bool,
+    state: State,
+    progress: float,
+}
+
+export component AppWindow inherits Window {
+    title: "Send files";
+    preferred-width: 820px;
+    preferred-height: 520px;
+    in property <[Item]> items;
+    in property <string> summary;
+    in property <bool> busy;
+    in property <bool> paused;
+    in property <int> chosen-count;
+    callback toggle(int) -> int;
+    callback toggle-all() -> int;
+    callback send();
+    callback pause(bool);
+    callback cancel-all();
+    callback cancel(int);
+
+    public function say(t: string) { news.say(t); }
+
+    pure function state-text(it: Item) -> string {
+        it.state == State.waiting ? @tr("Waiting")
+            : it.state == State.sending ? (paused ? @tr("Paused, {}%", round(it.progress * 100)) : @tr("{}%", round(it.progress * 100)))
+            : it.state == State.done ? @tr("✓ Arrived")
+            : it.state == State.failed ? @tr("Failed")
+            : it.state == State.cancelled ? @tr("Cancelled") : ""
+    }
+    pure function moving(it: Item) -> bool { it.state == State.waiting || it.state == State.sending }
+
+    VerticalBox {
+        Text {
+            text: @tr("Tick files with Space (or click the box, Ctrl+A for all), then Send. Delete cancels one file.");
+            wrap: word-wrap;
+        }
+        Rectangle {
+            vertical-stretch: 1;
+            border-width: 1px;
+            border-color: #8888;
+            VerticalLayout {
+                header := AccessTableHeader {
+                    sortable: false;
+                    columns: [
+                        // Every column needs a name, also a narrow one.
+                        { title: @tr("Pick"), width: 56px },
+                        { title: @tr("Name"), horizontal-stretch: 3 },
+                        { title: @tr("Size"), horizontal-stretch: 1 },
+                        { title: @tr("Status"), horizontal-stretch: 2 },
+                    ];
+                }
+                view := AccessTableView {
+                    label: @tr("Files to send");
+                    count: items.length;
+                    for k in view.slots : AccessRow {
+                        property <int> n: view.first + k;
+                        property <Item> it: items[n];
+                        state: view.state;
+                        index: n;
+                        selected: it.chosen;
+                        // Everything the row shows, in words; "sending" also
+                        // says why the box can't be changed.
+                        label: it.name + ", " + it.size
+                            + (moving(it) ? ", " + @tr("being sent") + ", " + state-text(it) : (it.chosen ? ", " + @tr("ticked") : ""))
+                            + (!moving(it) && it.state != State.idle ? ", " + state-text(it) : "");
+                        navigate(i, m) => { view.go-to(i); }
+                        focus-changed(f) => { view.active = f; }
+                        typed(t) => { view.type-ahead(t); }
+                        toggled(i) => {
+                            if (!moving(items[i])) { news.say(@tr("{} ticked", toggle(i))); }
+                        }
+                        select-all => { news.say(@tr("{} ticked", toggle-all())); }
+                        deleted(i) => { if (moving(items[i])) { cancel(i); news.say(@tr("Cancelled: {}", items[i].name)); } }
+
+                        HorizontalLayout {
+                            AccessCheckCell {
+                                width: 56px;
+                                checked: it.chosen;
+                                enabled: !moving(it);
+                                toggled => { if (!moving(it)) { news.say(@tr("{} ticked", toggle(n))); } }
+                            }
+                            AccessTextCell { horizontal-stretch: 3; text: it.name; }
+                            AccessTextCell { horizontal-stretch: 1; text: it.size; align: right; }
+                            // Both always exist (`visible`, not `if`): rows are
+                            // reused, and changing the element tree under a
+                            // focused row confuses screen readers.
+                            Rectangle {
+                                horizontal-stretch: 2;
+                                AccessProgressCell {
+                                    visible: it.state == State.sending;
+                                    x: 8px;
+                                    width: parent.width - 16px;
+                                    progress: it.progress;
+                                    text: state-text(it);
+                                    muted: paused;
+                                }
+                                AccessTextCell {
+                                    visible: it.state != State.sending;
+                                    text: state-text(it);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        HorizontalBox {
+            padding: 0;
+            Button {
+                text: chosen-count > 0 ? @tr("Send {n} file" | "Send {n} files" % chosen-count) : @tr("Send");
+                enabled: chosen-count > 0;
+                primary: true;
+                clicked => { root.send(); }
+            }
+            Button {
+                // One button that switches, with its text, not only an icon.
+                text: paused ? @tr("▶ Resume") : @tr("⏸ Pause");
+                enabled: busy;
+                clicked => {
+                    root.pause(!paused);
+                    news.say(paused ? @tr("Paused") : @tr("Resumed"));
+                }
+            }
+            Button {
+                text: @tr("Cancel all");
+                enabled: busy;
+                clicked => { root.cancel-all(); }
+            }
+            Text {
+                text: summary;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                wrap: word-wrap;
+            }
+        }
+    }
+    news := AccessAnnouncer { }
+}
