@@ -1,27 +1,55 @@
-import { AccessTable } from "@access-widgets";
-import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { AccessTable, AccessFilter, AccessDensity } from "@access-widgets";
+import { Button, VerticalBox, HorizontalBox, ComboBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
     title: "Access widgets";
-    preferred-width: 760px;
-    preferred-height: 480px;
+    preferred-width: 820px;
+    preferred-height: 520px;
     in property <[[StandardListViewItem]]> files;
+    in property <[bool]> selected;
+    in property <int> total;
+    in property <bool> loading;
     in-out property <[TableColumn]> columns: [
         { title: @tr("Name"), horizontal-stretch: 3 },
         { title: @tr("Size"), horizontal-stretch: 1 },
         { title: @tr("Modified"), horizontal-stretch: 1 },
     ];
     in-out property <string> status;
+    property <AccessDensity> density: density-box.current-index == 0 ? AccessDensity.compact : density-box.current-index == 2 ? AccessDensity.comfortable : AccessDensity.standard;
     callback sort-ascending(int);
     callback sort-descending(int);
     callback find(string, int) -> int;
+    callback select(int, int) -> int;
+    callback filter(string);
+    callback reload();
 
     VerticalBox {
-        Text { text: @tr("Files ({} rows). Tab into the table, use the arrows, type a letter.", files.length); wrap: word-wrap; }
+        HorizontalBox {
+            padding: 0;
+            AccessFilter {
+                label: @tr("Filter files");
+                shown: files.length;
+                total: total;
+                edited(t) => { root.filter(t); }
+            }
+            Text { text: @tr("Rows"); vertical-alignment: center; }
+            density-box := ComboBox {
+                accessible-label: @tr("Rows");
+                model: [@tr("Compact"), @tr("Standard"), @tr("Comfortable")];
+                current-index: 1;
+            }
+            Button { text: @tr("Reload"); clicked => { root.reload(); } }
+        }
         table := AccessTable {
             label: @tr("Downloads");
             columns <=> root.columns;
             rows: files;
+            density: root.density;
+            multi-select: true;
+            selected-rows: selected;
+            loading: root.loading;
+            empty-text: @tr("No files match the filter");
+            select(r, h) => { root.select(r, h) }
             sort-ascending(i) => { root.sort-ascending(i); }
             sort-descending(i) => { root.sort-descending(i); }
             find(p, f) => { root.find(p, f) }

@@ -21,7 +21,19 @@ A drop-in for `StandardTableView` (same `columns` and `rows`):
 - **Left/Right reads one cell:** "Size, 2 MB".
 - **Sortable, resizable columns,** also by keyboard (Enter sorts, Ctrl+Left/
   Right resizes); the sort is announced.
-- **Sticky header**, visible focus, rows grow with the text size.
+- **Several rows at once**, as in File Explorer: Shift extends, Ctrl moves
+  only the focus, Space or Ctrl+click adds or removes, Ctrl+A selects all;
+  "3 selected" is announced. The selection lives in `Selection` (Rust), so
+  it stays right while rows are reused.
+- **Compact, standard or comfortable rows** (24 / 32 / 40 px, growing with
+  the text size).
+- **Empty and loading states** that are shown and announced.
+- **Sticky header** and visible focus.
+
+## AccessFilter
+
+A quick filter field that announces "12 of 2000 shown" once you stop
+typing; Escape clears it. Your app does the filtering.
 
 For anything else in a row (check boxes, combo boxes, …) use the building
 blocks `AccessTableView`, `AccessRow` and `AccessTableHeader`.

@@ -17,6 +17,20 @@
 
 import { Palette, ScrollView } from "std-widgets.slint";
 
+// Row height: compact 24 px, standard 32 px, comfortable 40 px (as in
+// IBM Carbon); rows grow when the text gets larger.
+export enum AccessDensity { compact, standard, comfortable }
+
+// How a selection changes (`AccessTable.select`); see `Selection` in the
+// Rust crate. As numbers, so the Rust helper needs no generated types.
+export global AccessSelect {
+    out property <int> only: 0;     // just this row (click, arrows)
+    out property <int> toggle: 1;   // add or remove this row (Ctrl+click, Space)
+    out property <int> extend: 2;   // from the anchor to this row (Shift)
+    out property <int> all: 3;      // Ctrl+A
+    out property <int> clear: 4;
+}
+
 // Shared state between the view and its rows. Rows only read it.
 export struct AccessTableState {
     // Model index of the first row slot.
@@ -45,6 +59,14 @@ export global AccessTableTexts {
     in-out property <string> column-header: @tr("access-widgets" => "column header");
     in-out property <string> items: @tr("access-widgets" => "items");
     in-out property <string> column-headers: @tr("access-widgets" => "Column headers");
+    in-out property <string> no-items: @tr("access-widgets" => "No items");
+    in-out property <string> loading: @tr("access-widgets" => "Loading…");
+    pure public function selected-count(n: int) -> string {
+        @tr("access-widgets" => "{} selected", n)
+    }
+    pure public function shown-of(shown: int, total: int) -> string {
+        @tr("access-widgets" => "{} of {} shown", shown, total)
+    }
 }
 
 // The scroll area. Put `for k in view.slots : AccessRow { index: view.first + k; … }`
@@ -55,9 +77,12 @@ export component AccessTableView inherits ScrollView {
     in property <int> count;
     // Taller rows when the text gets larger (WCAG 1.4.4); at least 24 px
     // (WCAG 2.5.8 target size).
-    // 32 px by default (between Fluent's 24/34 and Carbon's 32/40), taller
-    // when the text gets larger (WCAG 1.4.4); never under 24 px (2.5.8).
-    in property <length> row-height: max(32px, measure.preferred-height + 12px);
+    in property <AccessDensity> density: standard;
+    // Taller when the text gets larger (WCAG 1.4.4); never under 24 px
+    // (WCAG 2.5.8 target size).
+    in property <length> row-height: density == AccessDensity.compact ? max(24px, measure.preferred-height + 6px)
+        : density == AccessDensity.comfortable ? max(40px, measure.preferred-height + 18px)
+        : max(32px, measure.preferred-height + 12px);
     in-out property <int> current: count > 0 ? 0 : -1;
     // Number of row slots: only these exist.
     out property <int> slots: min(count, ceil(self.visible-height / row-height) + 1);
@@ -130,8 +155,7 @@ export component AccessTableView inherits ScrollView {
             typed += t;
             cycling = false;
         }
-        quiet.running = false;
-        quiet.running = true;
+        if (quiet.running) { quiet.restart(); } else { quiet.start(); }
         let from = cycling ? current + 1 : current;
         let hit = find(typed, from);
         if (hit > 0) {
@@ -147,7 +171,7 @@ export component AccessTableView inherits ScrollView {
         running: false;
         triggered => {
             typed = "";
-            self.running = false;
+            self.stop();
         }
     }
 
@@ -176,7 +200,11 @@ export component AccessRow inherits Rectangle {
     in property <string> label;
     in property <bool> selected: index == state.current;
 
-    callback navigate(int);
+    // Move to a row. The modifiers say how the selection follows (Shift
+    // extends, Ctrl only moves the focus).
+    callback navigate(int, KeyboardModifiers);
+    // Ctrl+A.
+    callback select-all();
     // Enter or double click.
     callback activated(int);
     // Left/Right arrows (-1/+1), for cell navigation.
@@ -222,14 +250,17 @@ export component AccessRow inherits Rectangle {
     changed tick => { claim-always(); }
 
     touch := TouchArea {
-        clicked => {
-            navigate(index);
-            fs.focus();
-        }
         double-clicked => { activated(index); }
         pointer-event(e) => {
-            if (e.button == PointerEventButton.right && e.kind == PointerEventKind.down) {
-                navigate(index);
+            if (e.kind != PointerEventKind.down) { return; }
+            if (e.button == PointerEventButton.left) {
+                navigate(index, e.modifiers);
+                // Ctrl+click adds or removes this row (as in File Explorer).
+                if (e.modifiers.control && !e.modifiers.shift) { toggled(index); }
+                fs.focus();
+            } else if (e.button == PointerEventButton.right) {
+                // Right click on a row outside the selection selects it.
+                if (!selected) { navigate(index, e.modifiers); }
                 fs.focus();
                 context-menu(index, self.mouse-x, self.mouse-y);
             }
@@ -241,17 +272,16 @@ export component AccessRow inherits Rectangle {
         // that is scrolled away, the first row on screen, which hands the
         // focus on to the current row).
         focus-on-tab-navigation: is-current || (!state.current-visible && index == state.first);
-        focus-gained => { if (!is-current) { navigate(state.current); } }
+        focus-gained => { if (!is-current) { navigate(state.current, { control: true }); } }
         focus-changed-event => { focus-changed(self.has-focus); }
         key-pressed(e) => {
-            if (e.text == Key.DownArrow) { navigate(index + 1); return accept; }
-            if (e.text == Key.UpArrow) { navigate(index - 1); return accept; }
-            if (e.text == Key.PageDown) { navigate(index + state.page); return accept; }
-            if (e.text == Key.PageUp) { navigate(index - state.page); return accept; }
-            if (e.text == Key.Home && !e.modifiers.control) { navigate(0); return accept; }
-            if (e.text == Key.End && !e.modifiers.control) { navigate(state.count - 1); return accept; }
-            if (e.text == Key.Home) { navigate(0); return accept; }
-            if (e.text == Key.End) { navigate(state.count - 1); return accept; }
+            if (e.text == Key.DownArrow) { navigate(index + 1, e.modifiers); return accept; }
+            if (e.text == Key.UpArrow) { navigate(index - 1, e.modifiers); return accept; }
+            if (e.text == Key.PageDown) { navigate(index + state.page, e.modifiers); return accept; }
+            if (e.text == Key.PageUp) { navigate(index - state.page, e.modifiers); return accept; }
+            if (e.text == Key.Home) { navigate(0, e.modifiers); return accept; }
+            if (e.text == Key.End) { navigate(state.count - 1, e.modifiers); return accept; }
+            if (e.modifiers.control && (e.text == "a" || e.text == "A")) { select-all(); return accept; }
             if (e.text == Key.LeftArrow) { horizontal(-1); return accept; }
             if (e.text == Key.RightArrow) { horizontal(1); return accept; }
             if (e.text == Key.Return) { activated(index); return accept; }
@@ -432,6 +462,17 @@ export component AccessTable inherits Rectangle {
     in-out property <int> current-row <=> view.current;
     in-out property <int> current-column: 0;
     in-out property <int> sort-column <=> header.sort-column;
+    in property <AccessDensity> density: standard;
+    // Several rows at once (Ctrl/Shift, Space, Ctrl+A). Give `selected-rows`
+    // and handle `select` with `slint_access_widgets::Selection`.
+    in property <bool> multi-select: false;
+    in property <[bool]> selected-rows;
+    // Returns how many rows are selected now.
+    callback select(row: int, how: int) -> int;
+    // While true: "Loading…" instead of the rows.
+    in property <bool> loading: false;
+    // Shown (and read) when there are no rows.
+    in property <string> empty-text: AccessTableTexts.no-items;
     callback sort-ascending(int);
     callback sort-descending(int);
     callback current-row-changed(int);
@@ -478,7 +519,8 @@ export component AccessTable inherits Rectangle {
         }
         view := AccessTableView {
             label: root.label;
-            count: rows.length;
+            count: loading ? 0 : rows.length;
+            density: root.density;
             current-changed(i) => { root.current-row-changed(i); }
             find(p, f) => { root.find(p, f) }
 
@@ -488,7 +530,21 @@ export component AccessTable inherits Rectangle {
                 state: view.state;
                 index: n;
                 label: row-label(cells);
-                navigate(i) => { view.go-to(i); }
+                selected: multi-select ? (n < selected-rows.length && selected-rows[n]) : n == view.current;
+                navigate(i, m) => {
+                    view.go-to(i);
+                    if (multi-select && !m.control) {
+                        let c = select(view.current, m.shift ? AccessSelect.extend : AccessSelect.only);
+                        if (m.shift) { announce(AccessTableTexts.selected-count(c)); }
+                    }
+                    // Ctrl alone: only the focus moves; Space or Ctrl+click toggles.
+                }
+                select-all => {
+                    if (multi-select) { announce(AccessTableTexts.selected-count(select(-1, AccessSelect.all))); }
+                }
+                toggled(i) => {
+                    if (multi-select) { announce(AccessTableTexts.selected-count(select(i, AccessSelect.toggle))); }
+                }
                 activated(i) => { root.row-activated(i); }
                 context-menu(i, x, y) => { root.row-context-menu(i, x, y); }
                 typed(t) => { view.type-ahead(t); }
@@ -529,6 +585,26 @@ export component AccessTable inherits Rectangle {
         }
     }
 
+    // No rows, or still loading: say so, in the table and out loud.
+    Rectangle {
+        y: header.height;
+        height: parent.height - header.height;
+        visible: loading || rows.length == 0;
+        HorizontalLayout {
+            alignment: center;
+            spacing: 8px;
+            Text {
+                text: loading ? AccessTableTexts.loading : empty-text;
+                color: Palette.foreground;
+                vertical-alignment: center;
+                accessible-role: AccessibleRole.text;
+            }
+        }
+    }
+    changed loading => {
+        announce(loading ? AccessTableTexts.loading : (rows.length == 0 ? empty-text : rows.length + " " + AccessTableTexts.items));
+    }
+
     // Announcements (WCAG 4.1.3): a cell read with Left/Right.
     cell-news := Text {
         x: 0;
@@ -536,7 +612,7 @@ export component AccessTable inherits Rectangle {
         width: 1px;
         height: 1px;
         color: transparent;
-        accessible-role: text;
+        accessible-role: AccessibleRole.text;
         accessible-label: self.text;
         accessible-live-region: polite;
     }

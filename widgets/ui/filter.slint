@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// A quick filter for a table or list: a search field that says how many
+// rows are left ("12 of 2000 shown") as a status message (WCAG 4.1.3),
+// once you stop typing. Escape clears it. The filtering itself is done by
+// your app (on `edited`), as with sorting.
+
+import { LineEdit, Palette } from "std-widgets.slint";
+import { AccessTableTexts } from "table.slint";
+
+export component AccessFilter inherits Rectangle {
+    // What the field is for, e.g. "Filter files". Read by screen readers
+    // and shown as placeholder.
+    in property <string> label;
+    in-out property <string> text <=> field.text;
+    // Rows left after filtering, and in total: shown and announced.
+    in property <int> shown;
+    in property <int> total;
+    callback edited(string);
+
+    public function focus-field() { field.focus(); }
+
+    min-height: field.min-height;
+    preferred-width: 260px;
+
+    HorizontalLayout {
+        spacing: 8px;
+        field := LineEdit {
+            placeholder-text: label;
+            accessible-label: label;
+            edited(t) => {
+                root.edited(t);
+                if (quiet.running) { quiet.restart(); } else { quiet.start(); }
+            }
+            key-pressed(e) => {
+                if (e.text == Key.Escape && self.text != "") {
+                    self.text = "";
+                    root.edited("");
+                    if (quiet.running) { quiet.restart(); } else { quiet.start(); }
+                    return accept;
+                }
+                reject
+            }
+        }
+        Text {
+            text: field.text == "" ? "" : AccessTableTexts.shown-of(shown, total);
+            color: Palette.foreground;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+
+    // Announce after a short pause, not on every key.
+    quiet := Timer {
+        interval: 700ms;
+        running: false;
+        triggered => {
+            self.stop();
+            news.flip = !news.flip;
+            news.text = AccessTableTexts.shown-of(shown, total) + (news.flip ? "" : " ");
+        }
+    }
+    news := Text {
+        property <bool> flip;
+        x: 0;
+        y: 0;
+        width: 1px;
+        height: 1px;
+        color: transparent;
+        accessible-role: AccessibleRole.text;
+        accessible-label: self.text;
+        accessible-live-region: polite;
+    }
+}
