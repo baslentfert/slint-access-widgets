@@ -1,0 +1,13 @@
+[package]
+name = "slint-access-widgets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Accessible widgets for Slint (WCAG 2.2): a virtualized table that screen readers can follow, and more. Follows the active Slint style."
+keywords = ["slint", "accessibility", "a11y", "table", "wcag"]
+categories = ["gui", "accessibility"]
+readme = "../README.md"
+
+[dependencies]
+slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2"] }

@@ -1,0 +1,12 @@
+[package]
+name = "slint-a11y-check"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "See your Slint app the way a screen reader does: read the accessibility tree (AT-SPI on Linux, UI Automation on Windows) in tests."
+keywords = ["slint", "accessibility", "a11y", "testing", "screen-reader"]
+categories = ["gui", "accessibility", "development-tools::testing"]
+readme = "../README.md"
+
+[dependencies]

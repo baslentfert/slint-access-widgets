@@ -1,0 +1,36 @@
+import { AccessTable } from "@access-widgets";
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Access widgets";
+    preferred-width: 760px;
+    preferred-height: 480px;
+    in property <[[StandardListViewItem]]> files;
+    in-out property <[TableColumn]> columns: [
+        { title: @tr("Name"), horizontal-stretch: 3 },
+        { title: @tr("Size"), horizontal-stretch: 1 },
+        { title: @tr("Modified"), horizontal-stretch: 1 },
+    ];
+    in-out property <string> status;
+    callback sort-ascending(int);
+    callback sort-descending(int);
+    callback find(string, int) -> int;
+
+    VerticalBox {
+        Text { text: @tr("Files ({} rows). Tab into the table, use the arrows, type a letter.", files.length); wrap: word-wrap; }
+        table := AccessTable {
+            label: @tr("Downloads");
+            columns <=> root.columns;
+            rows: files;
+            sort-ascending(i) => { root.sort-ascending(i); }
+            sort-descending(i) => { root.sort-descending(i); }
+            find(p, f) => { root.find(p, f) }
+            row-activated(i) => { status = @tr("Opened {}", files[i][0].text); }
+        }
+        HorizontalBox {
+            padding: 0;
+            Button { text: @tr("Go to the table"); clicked => { table.focus-current(); } }
+            Text { text: status; vertical-alignment: center; }
+        }
+    }
+}

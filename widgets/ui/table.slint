@@ -1,0 +1,543 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// An accessible table for Slint, in two layers:
+//
+// - Building blocks: `AccessTableView` (the scroll area: only the rows that
+//   fit on screen exist, however long the model is), `AccessRow` (one row:
+//   focus, keys, what a screen reader hears) and `AccessTableHeader`
+//   (sortable, resizable column headers, also by keyboard). Put anything you
+//   like inside a row.
+// - `AccessTable`: a ready-made table with text cells, a drop-in for
+//   `StandardTableView` (same `columns` and `rows`).
+//
+// Every row takes keyboard focus itself, so assistive technology always
+// knows which row is current, also after scrolling. Colours come from
+// `Palette` only, so the table follows the active style (fluent, cupertino,
+// material, cosmic), light and dark.
+
+import { Palette, ScrollView } from "std-widgets.slint";
+
+// Shared state between the view and its rows. Rows only read it.
+export struct AccessTableState {
+    // Model index of the first row slot.
+    first: int,
+    // Current row (keyboard focus and selection anchor), -1 = none.
+    current: int,
+    // Number of rows in the model.
+    count: int,
+    row-height: length,
+    row-width: length,
+    // Rows per page (PageUp/PageDown).
+    page: int,
+    // True while a row of this table has keyboard focus.
+    active: bool,
+    // Is the current row on screen (one of the slots)?
+    current-visible: bool,
+    // Bumped to ask the current row to take focus.
+    focus-tick: int,
+}
+
+// Words of the table itself. Everything else (column titles, the name of
+// the table) comes from the app, so it translates with the app.
+export global AccessTableTexts {
+    in-out property <string> sorted-ascending: @tr("access-widgets" => "sorted ascending");
+    in-out property <string> sorted-descending: @tr("access-widgets" => "sorted descending");
+    in-out property <string> column-header: @tr("access-widgets" => "column header");
+    in-out property <string> items: @tr("access-widgets" => "items");
+    in-out property <string> column-headers: @tr("access-widgets" => "Column headers");
+}
+
+// The scroll area. Put `for k in view.slots : AccessRow { index: view.first + k; … }`
+// inside; see `AccessTable` below for a full example.
+export component AccessTableView inherits ScrollView {
+    // What a screen reader calls this table, e.g. "Downloads".
+    in property <string> label;
+    in property <int> count;
+    // Taller rows when the text gets larger (WCAG 1.4.4); at least 24 px
+    // (WCAG 2.5.8 target size).
+    // 32 px by default (between Fluent's 24/34 and Carbon's 32/40), taller
+    // when the text gets larger (WCAG 1.4.4); never under 24 px (2.5.8).
+    in property <length> row-height: max(32px, measure.preferred-height + 12px);
+    in-out property <int> current: count > 0 ? 0 : -1;
+    // Number of row slots: only these exist.
+    out property <int> slots: min(count, ceil(self.visible-height / row-height) + 1);
+    out property <int> first: max(0, min(count - slots, floor(-self.content-y / row-height)));
+    out property <AccessTableState> state: {
+        first: first,
+        current: current,
+        count: count,
+        row-height: row-height,
+        row-width: self.visible-width,
+        page: max(1, floor(self.visible-height / row-height) - 1),
+        active: active,
+        current-visible: current >= first && current < first + slots,
+        focus-tick: focus-tick,
+    };
+    // Set by rows; see `AccessRow.focus-changed`.
+    in-out property <bool> active;
+    property <int> focus-tick;
+    // Extra space at the top that is covered (a sticky header): a focused
+    // row is never hidden under it (WCAG 2.4.11).
+    in property <length> covered-top: 0;
+
+    callback current-changed(int);
+
+    // Type-ahead: return the first row at or after `from` whose text starts
+    // with `prefix` (case-insensitive), as index + 1; 0 = none. Without a
+    // handler, type-ahead does nothing. `slint_access_widgets::find_prefix`
+    // does it for a `StandardListViewItem` model.
+    callback find(prefix: string, from: int) -> int;
+    property <string> typed;
+
+    // Move to row `i`, bring it into view and give it focus.
+    public function go-to(i: int) {
+        if (count == 0) { return; }
+        current = max(0, min(count - 1, i));
+        bring-into-view(current);
+        focus-tick += 1;
+        current-changed(current);
+    }
+
+    // Give keyboard focus to the current row (e.g. after Tab into the table).
+    public function focus-current() {
+        if (current < 0 && count > 0) { current = 0; }
+        bring-into-view(current);
+        focus-tick += 1;
+    }
+
+    public function bring-into-view(i: int) {
+        if (i * row-height + self.content-y < covered-top) {
+            self.content-y = -(i * row-height) + covered-top;
+        }
+        if ((i + 1) * row-height + self.content-y > self.visible-height) {
+            self.content-y = -((i + 1) * row-height - self.visible-height);
+        }
+    }
+
+    // A typed character: search on, restart after a second of quiet. The
+    // same letter again and again walks through the rows with that letter
+    // (as in File Explorer and Finder); different letters search for the
+    // whole word.
+    property <bool> cycling;
+    public function type-ahead(text: string) {
+        let t = text.to-lowercase();
+        if (typed == "") {
+            typed = t;
+            cycling = true;
+        } else if (cycling && t == typed) {
+            // Keep the single letter: next match.
+        } else {
+            typed += t;
+            cycling = false;
+        }
+        quiet.running = false;
+        quiet.running = true;
+        let from = cycling ? current + 1 : current;
+        let hit = find(typed, from);
+        if (hit > 0) {
+            go-to(hit - 1);
+        } else if (from > 0) {
+            let wrap = find(typed, 0);
+            if (wrap > 0) { go-to(wrap - 1); }
+        }
+    }
+
+    quiet := Timer {
+        interval: 1s;
+        running: false;
+        triggered => {
+            typed = "";
+            self.running = false;
+        }
+    }
+
+    accessible-role: table;
+    accessible-label: label;
+    accessible-description: count + " " + AccessTableTexts.items;
+    content-height: count * row-height;
+    content-width: self.visible-width;
+
+    measure := Text {
+        text: "Mg";
+        visible: false;
+        accessible-role: none;
+    }
+
+    @children
+}
+
+// One row. Inside: whatever you want (text, check boxes, combo boxes). Keep
+// all state in your model, not in the widgets: rows are reused while
+// scrolling.
+export component AccessRow inherits Rectangle {
+    in property <AccessTableState> state;
+    in property <int> index;
+    // What a screen reader says for this row, e.g. "report.pdf, Size 2 MB".
+    in property <string> label;
+    in property <bool> selected: index == state.current;
+
+    callback navigate(int);
+    // Enter or double click.
+    callback activated(int);
+    // Left/Right arrows (-1/+1), for cell navigation.
+    callback horizontal(int);
+    // A printable character, for type-ahead.
+    callback typed(string);
+    // Space.
+    callback toggled(int);
+    // Menu key or Shift+F10, or a right click: open your context menu.
+    callback context-menu(int, length, length);
+    callback focus-changed(bool);
+
+    out property <bool> has-keyboard-focus: fs.has-focus;
+    property <bool> is-current: index == state.current;
+
+    visible: index < state.count;
+    y: index * state.row-height;
+    width: state.row-width;
+    height: state.row-height;
+    background: selected ? (fs.has-focus ? Palette.selection-background : Palette.alternate-background) : (touch.has-hover ? Palette.alternate-background : transparent);
+
+    accessible-role: list-item;
+    accessible-label: label;
+    accessible-item-selectable: true;
+    accessible-item-selected: selected;
+    accessible-item-index: index;
+    accessible-item-count: state.count;
+    accessible-action-default => { activated(index); }
+
+    function claim() {
+        if (is-current && state.active && !fs.has-focus) { fs.focus(); }
+    }
+    function claim-always() {
+        if (is-current && !fs.has-focus) { fs.focus(); }
+    }
+
+    // Only take focus while the table already has it: scrolling with the
+    // mouse wheel must not steal focus from elsewhere.
+    changed index => { claim(); }
+    changed is-current => { claim(); }
+    // An explicit request (go-to, focus-current) always wins.
+    property <int> tick: state.focus-tick;
+    changed tick => { claim-always(); }
+
+    touch := TouchArea {
+        clicked => {
+            navigate(index);
+            fs.focus();
+        }
+        double-clicked => { activated(index); }
+        pointer-event(e) => {
+            if (e.button == PointerEventButton.right && e.kind == PointerEventKind.down) {
+                navigate(index);
+                fs.focus();
+                context-menu(index, self.mouse-x, self.mouse-y);
+            }
+        }
+    }
+
+    fs := FocusScope {
+        // One Tab stop for the whole table: only the current row (or, when
+        // that is scrolled away, the first row on screen, which hands the
+        // focus on to the current row).
+        focus-on-tab-navigation: is-current || (!state.current-visible && index == state.first);
+        focus-gained => { if (!is-current) { navigate(state.current); } }
+        focus-changed-event => { focus-changed(self.has-focus); }
+        key-pressed(e) => {
+            if (e.text == Key.DownArrow) { navigate(index + 1); return accept; }
+            if (e.text == Key.UpArrow) { navigate(index - 1); return accept; }
+            if (e.text == Key.PageDown) { navigate(index + state.page); return accept; }
+            if (e.text == Key.PageUp) { navigate(index - state.page); return accept; }
+            if (e.text == Key.Home && !e.modifiers.control) { navigate(0); return accept; }
+            if (e.text == Key.End && !e.modifiers.control) { navigate(state.count - 1); return accept; }
+            if (e.text == Key.Home) { navigate(0); return accept; }
+            if (e.text == Key.End) { navigate(state.count - 1); return accept; }
+            if (e.text == Key.LeftArrow) { horizontal(-1); return accept; }
+            if (e.text == Key.RightArrow) { horizontal(1); return accept; }
+            if (e.text == Key.Return) { activated(index); return accept; }
+            if (e.text == " ") { toggled(index); return accept; }
+            if (e.text == Key.Menu || (e.text == Key.F10 && e.modifiers.shift)) {
+                context-menu(index, 16px, root.height);
+                return accept;
+            }
+            // Letters and digits: type-ahead. (Special keys are single
+            // private-use characters, so test for "is a letter or digit".)
+            if (!e.modifiers.control && !e.modifiers.alt && !e.modifiers.meta && e.text.character-count == 1
+                && (e.text.to-uppercase() != e.text.to-lowercase() || e.text.is-float())) {
+                typed(e.text);
+                return accept;
+            }
+            reject
+        }
+    }
+
+    @children
+
+    // Visible focus (WCAG 2.4.7): 2 px, drawn on top.
+    Rectangle {
+        border-width: fs.has-focus ? 2px : 0px;
+        border-color: Palette.accent-background;
+        border-radius: 2px;
+    }
+}
+
+// Column headers: one Tab stop. Left/Right picks a column, Enter or Space
+// sorts, Ctrl+Left/Right makes it narrower or wider (also by mouse: drag the
+// edge; WCAG 2.5.7 asks for the keyboard way too). Widths are written back
+// into `columns[i].width`, so rows below can follow.
+export component AccessTableHeader inherits Rectangle {
+    in-out property <[TableColumn]> columns;
+    in-out property <int> current-column: 0;
+    // The column the table is sorted on, -1 = none.
+    in-out property <int> sort-column: -1;
+    callback sort-ascending(int);
+    callback sort-descending(int);
+    out property <bool> has-keyboard-focus: fs.has-focus;
+
+    // Keyboard resize goes through a tick: only the cell knows its width.
+    property <int> resize-column: -1;
+    property <length> resize-delta;
+    property <int> resize-tick;
+
+    height: max(32px, measure.preferred-height + 12px);
+    background: Palette.alternate-background;
+
+    // For assistive technology the focus is on the button of the current
+    // column, not on this bar.
+    accessible-role: groupbox;
+    accessible-label: AccessTableTexts.column-headers;
+    accessible-delegate-focus: current-column;
+
+    measure := Text {
+        text: "Mg";
+        visible: false;
+        accessible-role: none;
+    }
+
+    function sort(i: int) {
+        let ascending = !(i == sort-column && columns[i].sort-order == SortOrder.ascending);
+        sort-column = i;
+        columns[i].sort-order = ascending ? SortOrder.ascending : SortOrder.descending;
+        if (ascending) { sort-ascending(i); } else { sort-descending(i); }
+    }
+
+    function resize(i: int, delta: length) {
+        resize-column = i;
+        resize-delta = delta;
+        resize-tick += 1;
+    }
+
+    pure function sort-text(i: int) -> string {
+        i != sort-column ? ""
+            : columns[i].sort-order == SortOrder.ascending ? ", " + AccessTableTexts.sorted-ascending
+            : columns[i].sort-order == SortOrder.descending ? ", " + AccessTableTexts.sorted-descending : ""
+    }
+
+    fs := FocusScope {
+        key-pressed(e) => {
+            if (e.text == Key.LeftArrow && e.modifiers.control) { resize(current-column, -16px); return accept; }
+            if (e.text == Key.RightArrow && e.modifiers.control) { resize(current-column, 16px); return accept; }
+            if (e.text == Key.LeftArrow) { current-column = max(0, current-column - 1); return accept; }
+            if (e.text == Key.RightArrow) { current-column = min(columns.length - 1, current-column + 1); return accept; }
+            if (e.text == Key.Home) { current-column = 0; return accept; }
+            if (e.text == Key.End) { current-column = columns.length - 1; return accept; }
+            if (e.text == Key.Return || e.text == " ") { sort(current-column); return accept; }
+            reject
+        }
+    }
+
+    HorizontalLayout {
+        for col[i] in columns : cell := Rectangle {
+            min-width: col.width >= 1px ? col.width : max(col.min-width, 32px);
+            max-width: col.width >= 1px ? col.width : 100000px;
+            horizontal-stretch: col.width >= 1px ? 0 : max(col.horizontal-stretch, 0.0001);
+
+            // Each header cell is a button for assistive technology; the
+            // focused one follows `current-column`.
+            accessible-role: button;
+            accessible-label: col.title + sort-text(i);
+            accessible-description: AccessTableTexts.column-header;
+            accessible-item-index: i;
+            accessible-item-count: columns.length;
+            accessible-action-default => { sort(i); }
+
+            function apply(delta: length) {
+                columns[i].width = max(max(col.min-width, 32px), (col.width >= 1px ? col.width : cell.width) + delta);
+            }
+            property <int> tick: resize-tick;
+            changed tick => { if (resize-column == i) { apply(resize-delta); } }
+
+            Text {
+                x: 8px;
+                width: parent.width - 26px;
+                text: col.title;
+                font-weight: 600;
+                color: Palette.foreground;
+                vertical-alignment: center;
+                overflow: elide;
+                accessible-role: none;
+            }
+            Text {
+                x: parent.width - 18px;
+                text: i != sort-column ? "" : col.sort-order == SortOrder.ascending ? "▲" : col.sort-order == SortOrder.descending ? "▼" : "";
+                color: Palette.foreground;
+                vertical-alignment: center;
+                accessible-role: none;
+            }
+            TouchArea {
+                clicked => {
+                    current-column = i;
+                    fs.focus();
+                    sort(i);
+                }
+            }
+            TouchArea {
+                x: parent.width - 4px;
+                width: 8px;
+                mouse-cursor: col-resize;
+                property <length> start;
+                pointer-event(e) => {
+                    if (e.kind == PointerEventKind.down) { self.start = self.mouse-x; }
+                }
+                moved => {
+                    if (self.pressed) { apply(self.mouse-x - self.start); }
+                }
+            }
+            Rectangle {
+                x: parent.width - 1px;
+                width: 1px;
+                background: Palette.border;
+            }
+            // Visible focus (WCAG 2.4.7).
+            Rectangle {
+                border-width: fs.has-focus && i == current-column ? 2px : 0px;
+                border-color: Palette.accent-background;
+                border-radius: 2px;
+            }
+        }
+    }
+}
+
+// A ready-made table with text cells: a drop-in for `StandardTableView`
+// (same `columns`, `rows`, `current-row`, sort callbacks), but accessible:
+// a screen reader hears every row as "report.pdf, Size 2 MB, Modified
+// yesterday" (the first column bare, the others with their title, up to 12
+// columns), also far down the list, and Left/Right reads one cell at a
+// time. The header stays in place while the rows scroll.
+export component AccessTable inherits Rectangle {
+    // What a screen reader calls this table, e.g. "Downloads".
+    in property <string> label;
+    in-out property <[TableColumn]> columns;
+    in property <[[StandardListViewItem]]> rows;
+    in-out property <int> current-row <=> view.current;
+    in-out property <int> current-column: 0;
+    in-out property <int> sort-column <=> header.sort-column;
+    callback sort-ascending(int);
+    callback sort-descending(int);
+    callback current-row-changed(int);
+    // Enter or double click on a row.
+    callback row-activated(int);
+    // Menu key, Shift+F10 or right click.
+    callback row-context-menu(int, length, length);
+    // Type-ahead on the first column: wire it to
+    // `slint_access_widgets::find_prefix` (see the crate docs).
+    callback find(prefix: string, from: int) -> int;
+
+    public function focus-current() { view.focus-current(); }
+    public function set-current-row(i: int) { view.go-to(i); }
+
+    min-width: 200px;
+    min-height: 120px;
+    background: Palette.background;
+    border-width: 1px;
+    border-color: Palette.border;
+
+    // A status message (WCAG 4.1.3). Saying the same thing twice must be
+    // heard twice, so alternate an invisible space at the end.
+    property <bool> flip;
+    function announce(t: string) {
+        flip = !flip;
+        cell-news.text = t + (flip ? "" : " ");
+    }
+
+    pure function row-label(row: [StandardListViewItem]) -> string {
+        (row.length > 0 ? row[0].text : "") + (columns.length > 1 && row.length > 1 ? ", " + columns[1].title + " " + row[1].text : "") + (columns.length > 2 && row.length > 2 ? ", " + columns[2].title + " " + row[2].text : "") + (columns.length > 3 && row.length > 3 ? ", " + columns[3].title + " " + row[3].text : "") + (columns.length > 4 && row.length > 4 ? ", " + columns[4].title + " " + row[4].text : "") + (columns.length > 5 && row.length > 5 ? ", " + columns[5].title + " " + row[5].text : "") + (columns.length > 6 && row.length > 6 ? ", " + columns[6].title + " " + row[6].text : "") + (columns.length > 7 && row.length > 7 ? ", " + columns[7].title + " " + row[7].text : "") + (columns.length > 8 && row.length > 8 ? ", " + columns[8].title + " " + row[8].text : "") + (columns.length > 9 && row.length > 9 ? ", " + columns[9].title + " " + row[9].text : "") + (columns.length > 10 && row.length > 10 ? ", " + columns[10].title + " " + row[10].text : "") + (columns.length > 11 && row.length > 11 ? ", " + columns[11].title + " " + row[11].text : "")
+    }
+
+    VerticalLayout {
+        header := AccessTableHeader {
+            columns <=> root.columns;
+            sort-ascending(i) => {
+                root.sort-ascending(i);
+                announce(columns[i].title + ", " + AccessTableTexts.sorted-ascending);
+            }
+            sort-descending(i) => {
+                root.sort-descending(i);
+                announce(columns[i].title + ", " + AccessTableTexts.sorted-descending);
+            }
+        }
+        view := AccessTableView {
+            label: root.label;
+            count: rows.length;
+            current-changed(i) => { root.current-row-changed(i); }
+            find(p, f) => { root.find(p, f) }
+
+            for k in view.slots : AccessRow {
+                property <int> n: view.first + k;
+                property <[StandardListViewItem]> cells: rows[n];
+                state: view.state;
+                index: n;
+                label: row-label(cells);
+                navigate(i) => { view.go-to(i); }
+                activated(i) => { root.row-activated(i); }
+                context-menu(i, x, y) => { root.row-context-menu(i, x, y); }
+                typed(t) => { view.type-ahead(t); }
+                focus-changed(f) => { view.active = f; }
+                horizontal(d) => {
+                    current-column = max(0, min(columns.length - 1, current-column + d));
+                    // Read just that cell: "Size, 2 MB".
+                    announce(columns[current-column].title + ", " + rows[view.current][current-column].text);
+                }
+
+                HorizontalLayout {
+                    for col[c] in columns : Rectangle {
+                        min-width: col.width >= 1px ? col.width : max(col.min-width, 32px);
+                        max-width: col.width >= 1px ? col.width : 100000px;
+                        horizontal-stretch: col.width >= 1px ? 0 : max(col.horizontal-stretch, 0.0001);
+                        Text {
+                            x: 8px;
+                            width: parent.width - 16px;
+                            text: c < cells.length ? cells[c].text : "";
+                            color: Palette.foreground;
+                            vertical-alignment: center;
+                            overflow: elide;
+                            accessible-role: none;
+                        }
+                        // The cell chosen with Left/Right: an underline, so
+                        // not by colour alone (WCAG 1.4.1).
+                        Rectangle {
+                            visible: c == current-column && n == view.current && view.active;
+                            y: parent.height - 3px;
+                            x: 6px;
+                            width: parent.width - 12px;
+                            height: 2px;
+                            background: Palette.accent-background;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Announcements (WCAG 4.1.3): a cell read with Left/Right.
+    cell-news := Text {
+        x: 0;
+        y: 0;
+        width: 1px;
+        height: 1px;
+        color: transparent;
+        accessible-role: text;
+        accessible-label: self.text;
+        accessible-live-region: polite;
+    }
+}
