@@ -128,6 +128,7 @@ fn main() {
     {
         let (items, ww, batch, sizes, paused) = (items.clone(), w.as_weak(), batch.clone(), sizes.clone(), paused.clone());
         let done_in_batch = Rc::new(Cell::new(0usize));
+        let failed_once = RefCell::new(std::collections::HashSet::<usize>::new());
         timer.start(slint::TimerMode::Repeated, TICK, move || {
             let w = ww.unwrap();
             let mut b = batch.borrow_mut();
@@ -159,6 +160,12 @@ fn main() {
                 it.state = State::Done;
                 b.remove(0);
                 done_in_batch.set(done_in_batch.get() + 1);
+            } else if i % 9 == 4 && it.progress > 0.6 && failed_once.borrow_mut().insert(i) {
+                // Pretend the connection broke for this one (every 9th
+                // file, the first time): red row; tick it to try again.
+                it.state = State::Failed;
+                b.remove(0);
+                w.invoke_say(format!("Failed: {}", it.name).into());
             }
             items.set_row_data(i, it);
         });
