@@ -401,6 +401,13 @@ component HeaderCell inherits Rectangle {
     in property <length> resize-delta;
     callback clicked();
     callback set-width(length);
+    // Double click on the edge: fit the column to its contents.
+    callback fit();
+    // Focused by keyboard: scroll me into view.
+    callback reveal(length, length);
+    changed focused => { if (focused) { reveal(self.x, self.width); } }
+    // The width the title needs (for fitting).
+    out property <length> title-width: title.preferred-width + 34px;
 
     min-width: column.width >= 1px ? column.width : max(column.min-width, 32px);
     max-width: column.width >= 1px ? column.width : 100000px;
@@ -411,7 +418,7 @@ component HeaderCell inherits Rectangle {
     }
     changed resize-tick => { if (resize-me) { apply(resize-delta); } }
 
-    Text {
+    title := Text {
         x: 8px;
         width: parent.width - 26px;
         text: column.title;
@@ -437,6 +444,7 @@ component HeaderCell inherits Rectangle {
         width: 8px;
         mouse-cursor: col-resize;
         property <length> start;
+        double-clicked => { fit(); }
         pointer-event(e) => {
             if (e.kind == PointerEventKind.down) { self.start = self.mouse-x; }
         }
@@ -470,7 +478,20 @@ export component AccessTableHeader inherits Rectangle {
     in property <bool> sortable: true;
     callback sort-ascending(int);
     callback sort-descending(int);
+    // Fit column `i` to its contents; `title-width` is what its title needs.
+    // `AccessTable` measures the cells on screen and sets the width.
+    callback fit-column(i: int, title-width: length);
+    // A header cell got the keyboard focus at `x .. x + w`: scroll there.
+    callback reveal-x(x: length, w: length);
     out property <bool> has-keyboard-focus: fs.has-focus;
+    // A fit asked by keyboard goes through a tick: only the cell knows its
+    // title width.
+    property <int> fit-tick;
+    property <int> fit-me: -1;
+    public function request-fit(i: int) {
+        fit-me = i;
+        fit-tick += 1;
+    }
     // The width all columns need at least (their minimum widths): when the
     // table is narrower, it scrolls sideways.
     out property <length> needed-width: widths.min-width;
@@ -549,6 +570,8 @@ export component AccessTableHeader inherits Rectangle {
             if (e.text == Key.Home) { current-column = 0; return accept; }
             if (e.text == Key.End) { current-column = columns.length - 1; return accept; }
             if (e.text == Key.Return || e.text == " ") { sort(current-column); return accept; }
+            // Ctrl and + : fit the column to its contents (as in File Explorer).
+            if (e.modifiers.control && (e.text == "+" || e.text == "=")) { request-fit(current-column); return accept; }
             reject
         }
     }
@@ -575,6 +598,10 @@ export component AccessTableHeader inherits Rectangle {
                 sort(i);
             }
             set-width(w) => { columns[i].width = w; }
+            fit => { request-fit(i); }
+            reveal(x, w) => { reveal-x(x, w); }
+            property <int> fit-ticks: fit-tick;
+            changed fit-ticks => { if (fit-me == i) { fit-column(i, self.title-width); } }
         }
     }
     if !sortable : HorizontalLayout {
@@ -583,6 +610,9 @@ export component AccessTableHeader inherits Rectangle {
             accessible-label: col.title;
             column: col;
             set-width(w) => { columns[i].width = w; }
+            fit => { request-fit(i); }
+            property <int> fit-ticks: fit-tick;
+            changed fit-ticks => { if (fit-me == i) { fit-column(i, self.title-width); } }
         }
     }
 }
@@ -668,6 +698,15 @@ export component AccessTable inherits Rectangle {
             x: view.content-x;
             width: max(parent.width, self.needed-width);
             columns <=> root.columns;
+            reveal-x(x, w) => { view.reveal-x(x, w); }
+            fit-column(i, tw) => {
+                // Every cell on screen of column i says how wide its text is.
+                fit-col = i;
+                fit-max = tw;
+                fit-tick += 1;
+                fit-apply.stop();
+                fit-apply.start();
+            }
             sort-ascending(i) => {
                 root.sort-ascending(i);
                 announce(columns[i].title + ", " + AccessTableTexts.sorted-ascending);
@@ -769,6 +808,10 @@ export component AccessTable inherits Rectangle {
                         // The cell chosen with Left/Right scrolls into view
                         // sideways.
                         changed by-key => { if (by-key) { view.reveal-x(self.x, self.width); } }
+                        property <int> fit-ticks: fit-tick;
+                        changed fit-ticks => {
+                            if (c == fit-col && !waiting) { fit-max = max(fit-max, t.preferred-width + 17px); }
+                        }
                         changed wants-tip => {
                             if (wants-tip) {
                                 offer-tip(tip-id, t.text, self.absolute-position.x - root.absolute-position.x,
@@ -833,6 +876,22 @@ export component AccessTable inherits Rectangle {
                     }
                     Rectangle { x: parent.width - 1px; width: 1px; background: Palette.border; }
                 }
+            }
+        }
+    }
+
+    // Fitting a column (double click on its edge, or Ctrl and +): the
+    // widest of its title and its cells on screen, at most 600 px.
+    property <int> fit-col: -1;
+    property <length> fit-max;
+    property <int> fit-tick;
+    fit-apply := Timer {
+        interval: 30ms;
+        running: false;
+        triggered => {
+            self.stop();
+            if (fit-col >= 0 && fit-col < columns.length) {
+                columns[fit-col].width = min(600px, max(columns[fit-col].min-width, fit-max));
             }
         }
     }
