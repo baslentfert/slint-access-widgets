@@ -8,5 +8,7 @@ description = "See your Slint app the way a screen reader does: read the accessi
 keywords = ["slint", "accessibility", "a11y", "testing", "screen-reader"]
 categories = ["gui", "accessibility", "development-tools::testing"]
 readme = "../README.md"
+# Comes later: not published yet.
+publish = false
 
 [dependencies]

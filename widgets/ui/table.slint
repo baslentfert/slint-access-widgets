@@ -16,6 +16,7 @@
 // material, cosmic), light and dark.
 
 import { Palette, ScrollView } from "std-widgets.slint";
+import { AccessFocus } from "focus.slint";
 
 // Row height: compact 24 px, standard 32 px, comfortable 40 px (as in
 // IBM Carbon); rows grow when the text gets larger.
@@ -230,7 +231,11 @@ export component AccessRow inherits Rectangle {
     // when it is done. Selection and hover go first, so you always see
     // where you are.
     in property <brush> background-tint: transparent;
-    background: selected ? (fs.has-focus ? Palette.selection-background : Palette.alternate-background) : (touch.has-hover ? Palette.alternate-background : background-tint);
+    // Selected rows all get the selection colour while the table has the
+    // focus; the focused one is told apart by its border.
+    background: selected ? (state.active ? Palette.selection-background : Palette.alternate-background) : (touch.has-hover ? Palette.alternate-background : background-tint);
+    // Text colour to use on this row (contrast on the selection colour).
+    out property <brush> text-color: selected && state.active ? Palette.selection-foreground : Palette.foreground;
 
     accessible-role: list-item;
     accessible-label: label;
@@ -263,6 +268,7 @@ export component AccessRow inherits Rectangle {
         double-clicked => { activated(index); }
         pointer-event(e) => {
             if (e.kind != PointerEventKind.down) { return; }
+            AccessFocus.keyboard = false;
             if (e.button == PointerEventButton.left) {
                 navigate(index, e.modifiers);
                 // Ctrl+click adds or removes this row (as in File Explorer).
@@ -282,8 +288,17 @@ export component AccessRow inherits Rectangle {
         // that is scrolled away, the first row on screen, which hands the
         // focus on to the current row).
         focus-on-tab-navigation: is-current || (!state.current-visible && index == state.first);
-        focus-gained => { if (!is-current) { navigate(state.current, { control: true }); } }
+        // Clicks go to the TouchArea below (it selects, then focuses).
+        focus-on-click: false;
+        focus-gained(reason) => {
+            if (reason == FocusReason.tab-navigation) { AccessFocus.keyboard = true; }
+            if (!is-current) { navigate(state.current, { control: true }); }
+        }
         focus-changed-event => { focus-changed(self.has-focus); }
+        capture-key-pressed(e) => {
+            AccessFocus.keyboard = true;
+            reject
+        }
         key-pressed(e) => {
             if (e.text == Key.DownArrow) { navigate(index + 1, e.modifiers); return accept; }
             if (e.text == Key.UpArrow) { navigate(index - 1, e.modifiers); return accept; }
@@ -314,10 +329,16 @@ export component AccessRow inherits Rectangle {
 
     @children
 
-    // Visible focus (WCAG 2.4.7): 2 px, drawn on top.
+    // Visible focus (WCAG 2.4.7): 2 px, just inside the row, drawn on top;
+    // after a mouse click only the selection shows (see `AccessFocus`). On
+    // a selected row in the selection colour, so it never vanishes into it.
     Rectangle {
-        border-width: fs.has-focus ? 2px : 0px;
-        border-color: Palette.accent-background;
+        x: 1px;
+        y: 1px;
+        width: parent.width - 2px;
+        height: parent.height - 2px;
+        border-width: fs.has-focus && AccessFocus.show ? 2px : 0px;
+        border-color: selected && state.active ? Palette.selection-foreground : Palette.accent-background;
         border-radius: 2px;
     }
 }
@@ -445,6 +466,13 @@ export component AccessTableHeader inherits Rectangle {
 
     fs := FocusScope {
         focus-on-tab-navigation: sortable;
+        focus-gained(reason) => {
+            if (reason == FocusReason.tab-navigation) { AccessFocus.keyboard = true; }
+        }
+        capture-key-pressed(e) => {
+            AccessFocus.keyboard = true;
+            reject
+        }
         key-pressed(e) => {
             if (e.text == Key.LeftArrow && e.modifiers.control) { resize(current-column, -16px); return accept; }
             if (e.text == Key.RightArrow && e.modifiers.control) { resize(current-column, 16px); return accept; }
@@ -468,11 +496,12 @@ export component AccessTableHeader inherits Rectangle {
             accessible-action-default => { sort(i); }
             column: col;
             arrow: i != sort-column ? "" : col.sort-order == SortOrder.ascending ? "▲" : col.sort-order == SortOrder.descending ? "▼" : "";
-            focused: fs.has-focus && i == current-column;
+            focused: fs.has-focus && i == current-column && AccessFocus.show;
             resize-tick: resize-tick;
             resize-me: resize-column == i;
             resize-delta: resize-delta;
             clicked => {
+                AccessFocus.keyboard = false;
                 current-column = i;
                 fs.focus();
                 sort(i);
@@ -566,7 +595,7 @@ export component AccessTable inherits Rectangle {
             current-changed(i) => { root.current-row-changed(i); }
             find(p, f) => { root.find(p, f) }
 
-            for k in view.slots : AccessRow {
+            for k in view.slots : r := AccessRow {
                 property <int> n: view.first + k;
                 property <[StandardListViewItem]> cells: rows[n];
                 state: view.state;
@@ -606,7 +635,7 @@ export component AccessTable inherits Rectangle {
                             x: 8px;
                             width: parent.width - 16px;
                             text: c < cells.length ? cells[c].text : "";
-                            color: Palette.foreground;
+                            color: r.text-color;
                             vertical-alignment: center;
                             overflow: elide;
                             accessible-role: none;
@@ -614,12 +643,12 @@ export component AccessTable inherits Rectangle {
                         // The cell chosen with Left/Right: an underline, so
                         // not by colour alone (WCAG 1.4.1).
                         Rectangle {
-                            visible: c == current-column && n == view.current && view.active;
+                            visible: c == current-column && n == view.current && view.active && AccessFocus.show;
                             y: parent.height - 3px;
                             x: 6px;
                             width: parent.width - 12px;
                             height: 2px;
-                            background: Palette.accent-background;
+                            background: r.text-color;
                         }
                     }
                 }

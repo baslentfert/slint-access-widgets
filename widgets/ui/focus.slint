@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// When to show the focus ring, like `:focus-visible` in browsers and the
+// "keyboard cues" in Windows: after a key (Tab, arrows, …) yes, after a
+// mouse click no. The selection itself always shows; only the ring around
+// the focused item waits for the keyboard. Shared by all widgets of this
+// crate, per app.
+
+export global AccessFocus {
+    // Set by the widgets: true after a key or Tab, false after a click.
+    in-out property <bool> keyboard: false;
+    // Always show the ring, e.g. when the user turned on "always show focus
+    // rectangles" in their system (WCAG 2.4.7 is met either way, because a
+    // keyboard user always gets the ring).
+    in-out property <bool> always-visible: false;
+    out property <bool> show: keyboard || always-visible;
+}

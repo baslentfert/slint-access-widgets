@@ -66,7 +66,7 @@ export component AppWindow inherits Window {
                 view := AccessTableView {
                     label: @tr("Files to send");
                     count: items.length;
-                    for k in view.slots : AccessRow {
+                    for k in view.slots : r := AccessRow {
                         property <int> n: view.first + k;
                         property <Item> it: items[n];
                         state: view.state;
@@ -96,8 +96,8 @@ export component AppWindow inherits Window {
                                 enabled: !moving(it);
                                 toggled => { if (!moving(it)) { news.say(@tr("{} ticked", toggle(n))); } }
                             }
-                            AccessTextCell { horizontal-stretch: 3; text: it.name; }
-                            AccessTextCell { horizontal-stretch: 1; text: it.size; align: right; }
+                            AccessTextCell { horizontal-stretch: 3; text: it.name; text-color: r.text-color; }
+                            AccessTextCell { horizontal-stretch: 1; text: it.size; align: right; text-color: r.text-color; }
                             // Both always exist (`visible`, not `if`): rows are
                             // reused, and changing the element tree under a
                             // focused row confuses screen readers.
@@ -110,10 +110,12 @@ export component AppWindow inherits Window {
                                     progress: it.progress;
                                     text: state-text(it);
                                     muted: paused;
+                                    text-color: r.text-color;
                                 }
                                 AccessTextCell {
                                     visible: it.state != State.sending;
                                     text: state-text(it);
+                                    text-color: r.text-color;
                                 }
                             }
                         }

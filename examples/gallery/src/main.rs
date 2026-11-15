@@ -46,11 +46,11 @@ fn main() {
     fill();
 
     let w = AppWindow::new().unwrap();
-    // `--lang nl`: another language than the system's.
+    // English unless you ask: `--lang nl` shows the Dutch translation, the
+    // widgets' own words included.
     let args: Vec<String> = std::env::args().collect();
-    if let Some(l) = args.iter().position(|a| a == "--lang").and_then(|i| args.get(i + 1)) {
-        let _ = slint::select_bundled_translation(l);
-    }
+    let lang = args.iter().position(|a| a == "--lang").and_then(|i| args.get(i + 1)).map_or("en", |l| l.as_str());
+    let _ = slint::select_bundled_translation(lang);
     w.set_files(model.clone().into());
     w.set_total(total as i32);
     w.set_selected(selection.model());
@@ -91,7 +91,7 @@ fn main() {
             match col {
                 1 => d.sort_by_key(|r| r.1),
                 2 => d.sort_by(|a, b| a.2.cmp(&b.2)),
-                _ => d.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase())),
+                _ => d.sort_by_key(|r| r.0.to_lowercase()),
             }
             if !asc {
                 d.reverse();

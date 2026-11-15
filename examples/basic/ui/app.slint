@@ -1,0 +1,21 @@
+// The smallest useful AccessTable: swap it in for a StandardTableView.
+import { AccessTable } from "@access-widgets";
+
+export component AppWindow inherits Window {
+    title: "Basic table";
+    preferred-width: 480px;
+    preferred-height: 260px;
+
+    AccessTable {
+        // What a screen reader calls the table.
+        label: "Planets";
+        columns: [{ title: "Name" }, { title: "Moons" }, { title: "Day (hours)" }];
+        rows: [
+            [{ text: "Mercury" }, { text: "0" }, { text: "4222" }],
+            [{ text: "Venus" }, { text: "0" }, { text: "2802" }],
+            [{ text: "Earth" }, { text: "1" }, { text: "24" }],
+            [{ text: "Mars" }, { text: "2" }, { text: "24.7" }],
+            [{ text: "Jupiter" }, { text: "95" }, { text: "9.9" }],
+        ];
+    }
+}

@@ -59,6 +59,7 @@ export component AccessProgressCell inherits Rectangle {
     in property <string> text;
     // Paused or failed: a calmer bar.
     in property <bool> muted;
+    in property <brush> text-color: Palette.foreground;
     min-width: 120px;
     accessible-role: none;
 
@@ -83,7 +84,7 @@ export component AccessProgressCell inherits Rectangle {
         }
         Text {
             text: root.text;
-            color: Palette.foreground;
+            color: root.text-color;
             vertical-alignment: center;
             min-width: 70px;
             accessible-role: none;
@@ -95,6 +96,8 @@ export component AccessProgressCell inherits Rectangle {
 export component AccessTextCell inherits Rectangle {
     in property <string> text;
     in property <TextHorizontalAlignment> align: left;
+    // Pass the row's `text-color`, so text stays readable on a selected row.
+    in property <brush> text-color: Palette.foreground;
     accessible-role: none;
     Text {
         x: 8px;
@@ -103,7 +106,7 @@ export component AccessTextCell inherits Rectangle {
         horizontal-alignment: align;
         vertical-alignment: center;
         overflow: elide;
-        color: Palette.foreground;
+        color: root.text-color;
         accessible-role: none;
     }
 }
