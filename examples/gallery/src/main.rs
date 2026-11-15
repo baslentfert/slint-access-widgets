@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use slint::{ComponentHandle, ModelRc, SharedString, StandardListViewItem, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, StandardListViewItem, VecModel};
 
 slint::include_modules!();
 
@@ -34,14 +34,15 @@ fn main() {
     let filter = Rc::new(std::cell::RefCell::new(String::new()));
     let model = Rc::new(VecModel::<ModelRc<StandardListViewItem>>::default());
     let selection = Rc::new(slint_access_widgets::Selection::new(0));
-    // Rows on screen: the data, filtered. The selection starts over.
+    // Rows on screen: the data, filtered. The selection stays on the same
+    // files (the name is the id), wherever sorting or filtering puts them.
     let fill = {
         let (data, model, filter, selection) = (data.clone(), model.clone(), filter.clone(), selection.clone());
         move || {
             let f = filter.borrow().to_lowercase();
-            let rows: Vec<_> = data.borrow().iter().filter(|(n, ..)| n.to_lowercase().contains(&f)).map(|(n, s, m)| row(n, *s, m)).collect();
-            selection.reset(rows.len());
-            model.set_vec(rows);
+            let shown: Vec<_> = data.borrow().iter().filter(|(n, ..)| n.to_lowercase().contains(&f)).cloned().collect();
+            selection.set_rows_by_id(shown.iter().map(|(n, ..)| n.clone()));
+            model.set_vec(shown.iter().map(|(n, s, m)| row(n, *s, m)).collect::<Vec<_>>());
         }
     };
     fill();
@@ -105,16 +106,23 @@ fn main() {
             }
         }
     };
-    {
-        let (sort, fill) = (sort.clone(), fill.clone());
-        w.on_sort_ascending(move |c| {
-            sort(c, true);
+    // Sort, and keep the current row on the same file (as File Explorer).
+    let resort = {
+        let (model, selection, ww) = (model.clone(), selection.clone(), w.as_weak());
+        move |c: i32, asc: bool| {
+            let w = ww.unwrap();
+            let current = model.row_data(w.get_current_row().max(0) as usize).and_then(|r| r.row_data(0)).map(|c| c.text.to_string());
+            sort(c, asc);
             fill();
-        });
+            if let Some(i) = current.and_then(|id| selection.index_of(&id)) {
+                w.invoke_keep_current(i as i32);
+            }
+        }
+    };
+    {
+        let resort = resort.clone();
+        w.on_sort_ascending(move |c| resort(c, true));
     }
-    w.on_sort_descending(move |c| {
-        sort(c, false);
-        fill();
-    });
+    w.on_sort_descending(move |c| resort(c, false));
     w.run().unwrap();
 }

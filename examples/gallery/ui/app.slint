@@ -21,6 +21,8 @@ export component AppWindow inherits Window {
     callback find(string, int) -> int;
     callback select(int, int) -> int;
     callback copy(int) -> int;
+    in-out property <int> current-row <=> table.current-row;
+    public function keep-current(i: int) { table.keep-current-row(i); }
     callback filter(string);
     callback reload();
 

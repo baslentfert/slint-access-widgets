@@ -138,6 +138,14 @@ export component AccessTableView inherits ScrollView {
         current-changed(current);
     }
 
+    // Make row `i` current without taking the focus, e.g. to keep it on the
+    // same item after sorting while the focus is on a column header.
+    public function move-current(i: int) {
+        if (count == 0) { return; }
+        current = max(0, min(count - 1, i));
+        bring-into-view(current);
+    }
+
     // Give keyboard focus to the current row (e.g. after Tab into the table).
     public function focus-current() {
         if (current < 0 && count > 0) { current = 0; }
@@ -588,6 +596,9 @@ export component AccessTable inherits Rectangle {
 
     public function focus-current() { view.focus-current(); }
     public function set-current-row(i: int) { view.go-to(i); }
+    // Without taking the focus: after sorting, keep the current row on its
+    // item (`Selection::index_of`).
+    public function keep-current-row(i: int) { view.move-current(i); }
 
     min-width: 200px;
     min-height: 120px;

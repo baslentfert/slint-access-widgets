@@ -129,11 +129,16 @@ pub fn copy_text(text: &str) -> Result<(), String> {
 /// ```
 ///
 /// Rows are reused while scrolling, so the selection lives here, not in the
-/// widgets. Call [`Selection::reset`] when the rows change (sort, filter).
+/// widgets. When the rows change (sort, filter), call
+/// [`Selection::set_rows_by_id`] with an id per row (a file name, a database
+/// key): the same items stay selected, wherever they are now. Or
+/// [`Selection::reset`] to start over.
 pub struct Selection {
     model: Rc<VecModel<bool>>,
     anchor: Cell<usize>,
     count: Cell<usize>,
+    /// An id per row, when given with `set_rows_by_id`.
+    ids: std::cell::RefCell<Vec<String>>,
 }
 
 impl Selection {
@@ -144,7 +149,36 @@ impl Selection {
     pub const CLEAR: i32 = 4;
 
     pub fn new(rows: usize) -> Self {
-        Self { model: Rc::new(VecModel::from(vec![false; rows])), anchor: Cell::new(0), count: Cell::new(0) }
+        Self { model: Rc::new(VecModel::from(vec![false; rows])), anchor: Cell::new(0), count: Cell::new(0), ids: Default::default() }
+    }
+
+    /// New rows, with an id each: the items that were selected stay
+    /// selected (and the Shift anchor stays on its item). Returns how many
+    /// are selected now (items that are gone, e.g. filtered out, drop out).
+    pub fn set_rows_by_id<S: Into<String>>(&self, ids: impl IntoIterator<Item = S>) -> i32 {
+        let old = self.ids.borrow();
+        let chosen: std::collections::HashSet<String> = self.rows().into_iter().filter_map(|i| old.get(i).cloned()).collect();
+        let anchor = old.get(self.anchor.get()).cloned();
+        drop(old);
+        let ids: Vec<String> = ids.into_iter().map(Into::into).collect();
+        let marks: Vec<bool> = ids.iter().map(|id| chosen.contains(id)).collect();
+        self.count.set(marks.iter().filter(|m| **m).count());
+        self.anchor.set(anchor.and_then(|a| ids.iter().position(|id| *id == a)).unwrap_or(0));
+        self.model.set_vec(marks);
+        *self.ids.borrow_mut() = ids;
+        self.count.get() as i32
+    }
+
+    /// The ids of the selected rows (after [`Selection::set_rows_by_id`]).
+    pub fn selected_ids(&self) -> Vec<String> {
+        let ids = self.ids.borrow();
+        self.rows().into_iter().filter_map(|i| ids.get(i).cloned()).collect()
+    }
+
+    /// The row of an id, e.g. to keep the current row on its item after a
+    /// sort (`set-current-row`).
+    pub fn index_of(&self, id: &str) -> Option<usize> {
+        self.ids.borrow().iter().position(|i| i == id)
     }
 
     /// For `selected-rows`.
@@ -157,6 +191,7 @@ impl Selection {
         self.model.set_vec(vec![false; rows]);
         self.anchor.set(0);
         self.count.set(0);
+        self.ids.borrow_mut().clear();
     }
 
     /// Applies a change from the table (`row`, `how` = one of the constants)
@@ -324,6 +359,24 @@ mod tests {
         l.reset(5);
         assert_eq!(l.model().row_count(), 5);
         assert_eq!(l.needed(0, 5), vec![0..5]);
+    }
+
+    #[test]
+    fn selection_follows_the_items() {
+        let s = Selection::new(0);
+        s.set_rows_by_id(["a", "b", "c", "d"]);
+        s.apply(1, Selection::ONLY);
+        assert_eq!(s.apply(2, Selection::EXTEND), 2);
+        // Sorted the other way round: b and c are still selected.
+        assert_eq!(s.set_rows_by_id(["d", "c", "b", "a"]), 2);
+        assert_eq!(s.rows(), [1, 2]);
+        assert_eq!(s.selected_ids(), ["c", "b"]);
+        // Shift from the same anchor (b, now row 2) to row 0.
+        assert_eq!(s.apply(0, Selection::EXTEND), 3);
+        assert_eq!(s.selected_ids(), ["d", "c", "b"]);
+        // Filtered: d is gone, c and b stay.
+        assert_eq!(s.set_rows_by_id(["b", "c", "x"]), 2);
+        assert_eq!(s.index_of("x"), Some(2));
     }
 
     #[test]

@@ -61,7 +61,8 @@ SCENARIOS = {
         ("Return", '"Name, sorted ascending"', "Name, sorted ascending"),
         ("Return", '"Name, sorted descending"', "Name, sorted descending"),
         ("Return", '"Name, sorted ascending"', None),
-        ("Tab", 'list item "backup-00004.zip, Size 32 kB, Modified in May" #1', None),
+        # The current row stayed on its file while sorting by name.
+        ("Tab", 'list item "report-00000.pdf, Size 1 kB, Modified today" #1501', None),
         ("End", "#2000", None),
         ("Home", "#1", None),
         ("Next", "#", None),
@@ -70,7 +71,7 @@ SCENARIOS = {
         ("shift+Down", "#3 selected", "3 selected"),
         # Copy: announced, and really on the clipboard, as columns.
         ("ctrl+c", "#3 selected", "3 rows copied"),
-        ("clipboard", "\t", None),
+        ("clipboard", "\t", "3"),
         ("ctrl+Down", "#4", None),
         ("space", "#4 selected", "4 selected"),
         ("ctrl+a", "selected", "2000 selected"),
@@ -79,6 +80,18 @@ SCENARIOS = {
         ("i", 'list item "invoice-', None),
         ("shift+Tab", 'button "Name, sorted ascending"', None),
         ("Tab", "list item", None),
+        # The selection stays on the same files after sorting.
+        ("Home", "#1 selected", None),
+        ("shift+Down", "#2 selected", "2 selected"),
+        ("ctrl+c", "#2 selected", "2 rows copied"),
+        ("clipboard", "backup-00004.zip", "2"),
+        ("shift+Tab", 'button "Name, sorted ascending"', None),
+        ("Right", 'button "Size"', None),
+        ("Return", '"Size, sorted ascending"', "Size, sorted ascending"),
+        # Back in the table: still on the same file, and still selected.
+        ("Tab", 'list item "backup-00012.zip', None),
+        ("ctrl+c", "selected", "2 rows copied"),
+        ("clipboard", "backup-00004.zip", "2"),
     ],
     "transfer": [
         ("Tab", 'list item "holiday-00.mp4, 6 MB" #1', None),
@@ -139,7 +152,7 @@ def run(name):
                 # The text on the clipboard must contain `want_focus` and
                 # have three lines (three rows).
                 clip = subprocess.run(["xclip", "-o", "-selection", "clipboard"], capture_output=True, text=True).stdout
-                ok = want_focus in clip and clip.count("\n") == 3
+                ok = want_focus in clip and clip.count("\n") == int(want_heard)
                 print(f"{'ok  ' if ok else 'FAIL'} clipboard  {clip!r}")
                 if not ok:
                     return False
