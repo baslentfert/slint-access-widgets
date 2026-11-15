@@ -6,54 +6,64 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: po-bundle\n"
 
-#: ui/table.slint:58
+#: ui/table.slint:61
 msgctxt "access-widgets"
 msgid "sorted ascending"
 msgstr "aufsteigend sortiert"
 
-#: ui/table.slint:59
+#: ui/table.slint:62
 msgctxt "access-widgets"
 msgid "sorted descending"
 msgstr "absteigend sortiert"
 
-#: ui/table.slint:60
+#: ui/table.slint:63
 msgctxt "access-widgets"
 msgid "column header"
 msgstr "Spaltenkopf"
 
-#: ui/table.slint:61
+#: ui/table.slint:64
 msgctxt "access-widgets"
 msgid "items"
 msgstr "Einträge"
 
-#: ui/table.slint:62
+#: ui/table.slint:65
 msgctxt "access-widgets"
 msgid "Column headers"
 msgstr "Spaltenköpfe"
 
-#: ui/table.slint:63
+#: ui/table.slint:66
 msgctxt "access-widgets"
 msgid "No items"
 msgstr "Keine Einträge"
 
-#: ui/table.slint:64
+#: ui/table.slint:67
 msgctxt "access-widgets"
 msgid "Loading…"
 msgstr "Wird geladen…"
 
-#: ui/table.slint:66
+#: ui/table.slint:69
 msgctxt "access-widgets"
 msgid "{} selected"
 msgstr "{} ausgewählt"
 
-#: ui/table.slint:69
+#: ui/table.slint:72
+msgctxt "access-widgets"
+msgid "level {}"
+msgstr "Ebene {}"
+
+#: ui/table.slint:74
+msgctxt "access-widgets"
+msgid "then"
+msgstr "dann"
+
+#: ui/table.slint:76
 msgctxt "access-widgets"
 msgid "{n} row copied"
 msgid_plural "{n} rows copied"
 msgstr[0] "{n} Zeile kopiert"
 msgstr[1] "{n} Zeilen kopiert"
 
-#: ui/table.slint:72
+#: ui/table.slint:79
 msgctxt "access-widgets"
 msgid "{} of {} shown"
 msgstr "{} von {} angezeigt"

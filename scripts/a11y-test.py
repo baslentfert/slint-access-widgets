@@ -105,6 +105,21 @@ SCENARIOS = {
         ("Tab", 'list item "backup-00012.zip', None),
         ("ctrl+c", "selected", "2 rows copied"),
         ("clipboard", "backup-00004.zip", "2"),
+        # Sort on two columns: Type, then (Shift+Enter) Size.
+        ("shift+Tab", 'button "Size, sorted ascending"', None),
+        ("Right", 'button "Modified"', None),
+        ("Right", 'button "Type"', None),
+        ("Return", '"Type, sorted ascending"', "Type, sorted ascending"),
+        ("Left", 'button "Modified"', None),
+        ("Left", 'button "Size"', None),
+        ("shift+Return", '"Size, sorted ascending, level 2"', "Type, sorted ascending, then Size, sorted ascending"),
+        ("shift+Return", '"Size, sorted descending, level 2"', "then Size, sorted descending"),
+        ("Right", 'button "Modified"', None),
+        ("Right", 'button "Type, sorted ascending, level 1"', None),
+        ("Tab", "list item", None),
+        # First rows: the first type (Application), biggest first.
+        ("Home", 'Type Application', None),
+        ("Down", 'Type Application', None),
     ],
     "transfer": [
         ("Tab", 'list item "holiday-00.mp4, 6 MB" #1', None),

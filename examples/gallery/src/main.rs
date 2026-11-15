@@ -113,38 +113,35 @@ fn main() {
         let model = model.clone();
         w.on_find(move |p, from| slint_access_widgets::find_prefix(&*model, &p, from));
     }
+    // Sort on one or more columns (Shift+click adds a level): compare on the
+    // first level, on a tie the next one. `sort_by` is stable, so rows that
+    // are equal on every level keep their order.
     let sort = {
         let data = data.clone();
-        move |col: i32, asc: bool| {
-            let mut d = data.borrow_mut();
-            match col {
-                1 => d.sort_by_key(|r| r.1),
-                2 => d.sort_by(|a, b| a.2.cmp(&b.2)),
-                3..=5 => d.sort_by_cached_key(|r| extra(&r.0)[col as usize - 3].clone()),
-                _ => d.sort_by_key(|r| r.0.to_lowercase()),
-            }
-            if !asc {
-                d.reverse();
-            }
+        move |levels: &[AccessSort]| {
+            let compare = |a: &(String, u64, String), b: &(String, u64, String), col: i32| match col {
+                1 => a.1.cmp(&b.1),
+                2 => a.2.cmp(&b.2),
+                3..=5 => extra(&a.0)[col as usize - 3].cmp(&extra(&b.0)[col as usize - 3]),
+                _ => a.0.to_lowercase().cmp(&b.0.to_lowercase()),
+            };
+            data.borrow_mut().sort_by(|a, b| {
+                levels.iter().fold(std::cmp::Ordering::Equal, |o, l| {
+                    o.then_with(|| if l.ascending { compare(a, b, l.column) } else { compare(b, a, l.column) })
+                })
+            });
         }
     };
     // Sort, and keep the current row on the same file (as File Explorer).
-    let resort = {
-        let (model, selection, ww) = (model.clone(), selection.clone(), w.as_weak());
-        move |c: i32, asc: bool| {
-            let w = ww.unwrap();
-            let current = model.row_data(w.get_current_row().max(0) as usize).and_then(|r| r.row_data(0)).map(|c| c.text.to_string());
-            sort(c, asc);
-            fill();
-            if let Some(i) = current.and_then(|id| selection.index_of(&id)) {
-                w.invoke_keep_current(i as i32);
-            }
+    let (ww, m, sel) = (w.as_weak(), model.clone(), selection.clone());
+    w.on_sort_changed(move |levels| {
+        let w = ww.unwrap();
+        let current = m.row_data(w.get_current_row().max(0) as usize).and_then(|r| r.row_data(0)).map(|c| c.text.to_string());
+        sort(&levels.iter().collect::<Vec<_>>());
+        fill();
+        if let Some(i) = current.and_then(|id| sel.index_of(&id)) {
+            w.invoke_keep_current(i as i32);
         }
-    };
-    {
-        let resort = resort.clone();
-        w.on_sort_ascending(move |c| resort(c, true));
-    }
-    w.on_sort_descending(move |c| resort(c, false));
+    });
     w.run().unwrap();
 }

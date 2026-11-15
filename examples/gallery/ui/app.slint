@@ -1,4 +1,4 @@
-import { AccessTable, AccessFilter, AccessDensity } from "@access-widgets";
+import { AccessTable, AccessFilter, AccessDensity, AccessSort } from "@access-widgets";
 import { Button, VerticalBox, HorizontalBox, ComboBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
@@ -19,8 +19,8 @@ export component AppWindow inherits Window {
     ];
     in-out property <string> status;
     property <AccessDensity> density: density-box.current-index == 0 ? AccessDensity.compact : density-box.current-index == 2 ? AccessDensity.comfortable : AccessDensity.standard;
-    callback sort-ascending(int);
-    callback sort-descending(int);
+    // The whole sort, first level first (Shift+click adds levels).
+    callback sort-changed([AccessSort]);
     callback find(string, int) -> int;
     callback select(int, int) -> int;
     callback copy(int) -> int;
@@ -57,8 +57,7 @@ export component AppWindow inherits Window {
             empty-text: @tr("No files match the filter");
             select(r, h) => { root.select(r, h) }
             copy(c) => { root.copy(c) }
-            sort-ascending(i) => { root.sort-ascending(i); }
-            sort-descending(i) => { root.sort-descending(i); }
+            sort-changed(l) => { root.sort-changed(l); }
             find(p, f) => { root.find(p, f) }
             row-activated(i) => { status = @tr("Opened {}", files[i][0].text); }
         }

@@ -32,6 +32,9 @@ export global AccessSelect {
     out property <int> clear: 4;
 }
 
+// One level of a sort: on this column, this way round.
+export struct AccessSort { column: int, ascending: bool }
+
 // Shared state between the view and its rows. Rows only read it.
 export struct AccessTableState {
     // Model index of the first row slot.
@@ -65,6 +68,10 @@ export global AccessTableTexts {
     pure public function selected-count(n: int) -> string {
         @tr("access-widgets" => "{} selected", n)
     }
+    pure public function sort-level(n: int) -> string {
+        @tr("access-widgets" => "level {}", n)
+    }
+    in-out property <string> then: @tr("access-widgets" => "then");
     pure public function copied-count(n: int) -> string {
         @tr("access-widgets" => "{n} row copied" | "{n} rows copied" % n)
     }
@@ -399,7 +406,8 @@ component HeaderCell inherits Rectangle {
     in property <int> resize-tick;
     in property <bool> resize-me;
     in property <length> resize-delta;
-    callback clicked();
+    // A click; true with Shift held (add a sort level).
+    callback clicked(bool);
     callback set-width(length);
     // Double click on the edge: fit the column to its contents.
     callback fit();
@@ -420,7 +428,7 @@ component HeaderCell inherits Rectangle {
 
     title := Text {
         x: 8px;
-        width: parent.width - 26px;
+        width: parent.width - 32px;
         text: column.title;
         font-weight: 600;
         color: Palette.foreground;
@@ -429,14 +437,16 @@ component HeaderCell inherits Rectangle {
         accessible-role: none;
     }
     Text {
-        x: parent.width - 18px;
+        x: parent.width - 24px;
         text: arrow;
         color: Palette.foreground;
         vertical-alignment: center;
         accessible-role: none;
     }
     TouchArea {
-        clicked => { root.clicked(); }
+        property <bool> shift;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { self.shift = e.modifiers.shift; } }
+        clicked => { root.clicked(self.shift); }
     }
     // Drag the right edge to resize (keyboard: Ctrl+Left/Right).
     TouchArea {
@@ -472,8 +482,15 @@ component HeaderCell inherits Rectangle {
 export component AccessTableHeader inherits Rectangle {
     in-out property <[TableColumn]> columns;
     in-out property <int> current-column: 0;
-    // The column the table is sorted on, -1 = none.
+    // The column the table is sorted on, -1 = none; with Shift+click or
+    // Shift+Enter a second and third level (-1 = none).
     in-out property <int> sort-column: -1;
+    in-out property <int> sort-column2: -1;
+    in-out property <int> sort-column3: -1;
+    // The whole sort, every time it changes: first level first. Sort your
+    // rows like that (`a.cmp(b).then_with(…)`). Single-level sorts also
+    // call `sort-ascending`/`sort-descending`.
+    callback sort-changed([AccessSort]);
     // False: the headers are just labels (no sorting, no "sorted" words).
     in property <bool> sortable: true;
     callback sort-ascending(int);
@@ -535,10 +552,49 @@ export component AccessTableHeader inherits Rectangle {
 
     function sort(i: int) {
         if (!sortable) { return; }
-        let ascending = !(i == sort-column && columns[i].sort-order == SortOrder.ascending);
+        let ascending = !(i == sort-column && sort-column2 < 0 && columns[i].sort-order == SortOrder.ascending);
         sort-column = i;
+        sort-column2 = -1;
+        sort-column3 = -1;
         columns[i].sort-order = ascending ? SortOrder.ascending : SortOrder.descending;
         if (ascending) { sort-ascending(i); } else { sort-descending(i); }
+        sort-changed(levels());
+    }
+
+    // Shift: add column `i` as the next level, or turn it round when it is
+    // in the sort already. Three levels at most (a fourth replaces the third).
+    function add-sort(i: int) {
+        if (!sortable) { return; }
+        if (i == sort-column || i == sort-column2 || i == sort-column3) {
+            columns[i].sort-order = columns[i].sort-order == SortOrder.ascending ? SortOrder.descending : SortOrder.ascending;
+        } else {
+            columns[i].sort-order = SortOrder.ascending;
+            if (sort-column < 0) { sort-column = i; }
+            else if (sort-column2 < 0) { sort-column2 = i; }
+            else { sort-column3 = i; }
+        }
+        if (sort-column2 < 0) {
+            if (columns[i].sort-order == SortOrder.ascending) { sort-ascending(i); } else { sort-descending(i); }
+        }
+        sort-changed(levels());
+    }
+
+    pure function level(c: int) -> AccessSort {
+        { column: c, ascending: columns[c].sort-order != SortOrder.descending }
+    }
+    pure public function levels() -> [AccessSort] {
+        sort-column < 0 ? [] : sort-column2 < 0 ? [level(sort-column)]
+            : sort-column3 < 0 ? [level(sort-column), level(sort-column2)]
+            : [level(sort-column), level(sort-column2), level(sort-column3)]
+    }
+    // 1, 2, 3 or 0 (not in the sort).
+    pure public function level-of(i: int) -> int {
+        i == sort-column ? 1 : i == sort-column2 ? 2 : i == sort-column3 ? 3 : 0
+    }
+    // ▲ or ▼, with the level when there is more than one.
+    pure public function arrow-for(i: int) -> string {
+        level-of(i) == 0 ? ""
+            : (columns[i].sort-order == SortOrder.descending ? "▼" : "▲") + (sort-column2 >= 0 ? level-of(i) : "")
     }
 
     function resize(i: int, delta: length) {
@@ -548,9 +604,9 @@ export component AccessTableHeader inherits Rectangle {
     }
 
     pure function sort-text(i: int) -> string {
-        i != sort-column ? ""
-            : columns[i].sort-order == SortOrder.ascending ? ", " + AccessTableTexts.sorted-ascending
-            : columns[i].sort-order == SortOrder.descending ? ", " + AccessTableTexts.sorted-descending : ""
+        level-of(i) == 0 ? ""
+            : (columns[i].sort-order == SortOrder.descending ? ", " + AccessTableTexts.sorted-descending : ", " + AccessTableTexts.sorted-ascending)
+                + (sort-column2 >= 0 ? ", " + AccessTableTexts.sort-level(level-of(i)) : "")
     }
 
     fs := FocusScope {
@@ -569,6 +625,7 @@ export component AccessTableHeader inherits Rectangle {
             if (e.text == Key.RightArrow) { current-column = min(columns.length - 1, current-column + 1); return accept; }
             if (e.text == Key.Home) { current-column = 0; return accept; }
             if (e.text == Key.End) { current-column = columns.length - 1; return accept; }
+            if ((e.text == Key.Return || e.text == " ") && e.modifiers.shift) { add-sort(current-column); return accept; }
             if (e.text == Key.Return || e.text == " ") { sort(current-column); return accept; }
             // Ctrl and + : fit the column to its contents (as in File Explorer).
             if (e.modifiers.control && (e.text == "+" || e.text == "=")) { request-fit(current-column); return accept; }
@@ -586,16 +643,16 @@ export component AccessTableHeader inherits Rectangle {
             accessible-item-count: columns.length;
             accessible-action-default => { sort(i); }
             column: col;
-            arrow: i != sort-column ? "" : col.sort-order == SortOrder.ascending ? "▲" : col.sort-order == SortOrder.descending ? "▼" : "";
+            arrow: arrow-for(i);
             focused: fs.has-focus && i == current-column && AccessFocus.show;
             resize-tick: resize-tick;
             resize-me: resize-column == i;
             resize-delta: resize-delta;
-            clicked => {
+            clicked(shift) => {
                 AccessFocus.keyboard = false;
                 current-column = i;
                 fs.focus();
-                sort(i);
+                if (shift) { add-sort(i); } else { sort(i); }
             }
             set-width(w) => { columns[i].width = w; }
             fit => { request-fit(i); }
@@ -620,7 +677,7 @@ export component AccessTableHeader inherits Rectangle {
 // A ready-made table with text cells: a drop-in for `StandardTableView`
 // (same `columns`, `rows`, `current-row`, sort callbacks), but accessible:
 // a screen reader hears every row as "report.pdf, Size 2 MB, Modified
-// yesterday" (the first column bare, the others with their title, up to 12
+// yesterday" (the first column bare, the others with their title, up to 24
 // columns), also far down the list, and Left/Right reads one cell at a
 // time. The header stays in place while the rows scroll.
 export component AccessTable inherits Rectangle {
@@ -644,6 +701,9 @@ export component AccessTable inherits Rectangle {
     in property <string> empty-text: AccessTableTexts.no-items;
     callback sort-ascending(int);
     callback sort-descending(int);
+    // The whole sort (Shift+click or Shift+Enter adds levels), first level
+    // first. Handle this or the two above, not both.
+    callback sort-changed([AccessSort]);
     callback current-row-changed(int);
     // Enter or double click on a row.
     callback row-activated(int);
@@ -685,8 +745,18 @@ export component AccessTable inherits Rectangle {
         cell-news.text = t + (flip ? "" : " ");
     }
 
+    pure function level-words(l: AccessSort) -> string {
+        columns[l.column].title + ", " + (l.ascending ? AccessTableTexts.sorted-ascending : AccessTableTexts.sorted-descending)
+    }
+    pure function sort-words(l: [AccessSort]) -> string {
+        (l.length > 0 ? level-words(l[0]) : "")
+            + (l.length > 1 ? ", " + AccessTableTexts.then + " " + level-words(l[1]) : "")
+            + (l.length > 2 ? ", " + AccessTableTexts.then + " " + level-words(l[2]) : "")
+    }
+
     pure function row-label(row: [StandardListViewItem]) -> string {
-        (row.length > 0 ? row[0].text : "") + (columns.length > 1 && row.length > 1 ? ", " + columns[1].title + " " + row[1].text : "") + (columns.length > 2 && row.length > 2 ? ", " + columns[2].title + " " + row[2].text : "") + (columns.length > 3 && row.length > 3 ? ", " + columns[3].title + " " + row[3].text : "") + (columns.length > 4 && row.length > 4 ? ", " + columns[4].title + " " + row[4].text : "") + (columns.length > 5 && row.length > 5 ? ", " + columns[5].title + " " + row[5].text : "") + (columns.length > 6 && row.length > 6 ? ", " + columns[6].title + " " + row[6].text : "") + (columns.length > 7 && row.length > 7 ? ", " + columns[7].title + " " + row[7].text : "") + (columns.length > 8 && row.length > 8 ? ", " + columns[8].title + " " + row[8].text : "") + (columns.length > 9 && row.length > 9 ? ", " + columns[9].title + " " + row[9].text : "") + (columns.length > 10 && row.length > 10 ? ", " + columns[10].title + " " + row[10].text : "") + (columns.length > 11 && row.length > 11 ? ", " + columns[11].title + " " + row[11].text : "")
+        // Up to 24 columns (Slint has no loops in expressions).
+        (row.length > 0 ? row[0].text : "") + (columns.length > 1 && row.length > 1 ? ", " + columns[1].title + " " + row[1].text : "") + (columns.length > 2 && row.length > 2 ? ", " + columns[2].title + " " + row[2].text : "") + (columns.length > 3 && row.length > 3 ? ", " + columns[3].title + " " + row[3].text : "") + (columns.length > 4 && row.length > 4 ? ", " + columns[4].title + " " + row[4].text : "") + (columns.length > 5 && row.length > 5 ? ", " + columns[5].title + " " + row[5].text : "") + (columns.length > 6 && row.length > 6 ? ", " + columns[6].title + " " + row[6].text : "") + (columns.length > 7 && row.length > 7 ? ", " + columns[7].title + " " + row[7].text : "") + (columns.length > 8 && row.length > 8 ? ", " + columns[8].title + " " + row[8].text : "") + (columns.length > 9 && row.length > 9 ? ", " + columns[9].title + " " + row[9].text : "") + (columns.length > 10 && row.length > 10 ? ", " + columns[10].title + " " + row[10].text : "") + (columns.length > 11 && row.length > 11 ? ", " + columns[11].title + " " + row[11].text : "") + (columns.length > 12 && row.length > 12 ? ", " + columns[12].title + " " + row[12].text : "") + (columns.length > 13 && row.length > 13 ? ", " + columns[13].title + " " + row[13].text : "") + (columns.length > 14 && row.length > 14 ? ", " + columns[14].title + " " + row[14].text : "") + (columns.length > 15 && row.length > 15 ? ", " + columns[15].title + " " + row[15].text : "") + (columns.length > 16 && row.length > 16 ? ", " + columns[16].title + " " + row[16].text : "") + (columns.length > 17 && row.length > 17 ? ", " + columns[17].title + " " + row[17].text : "") + (columns.length > 18 && row.length > 18 ? ", " + columns[18].title + " " + row[18].text : "") + (columns.length > 19 && row.length > 19 ? ", " + columns[19].title + " " + row[19].text : "") + (columns.length > 20 && row.length > 20 ? ", " + columns[20].title + " " + row[20].text : "") + (columns.length > 21 && row.length > 21 ? ", " + columns[21].title + " " + row[21].text : "") + (columns.length > 22 && row.length > 22 ? ", " + columns[22].title + " " + row[22].text : "") + (columns.length > 23 && row.length > 23 ? ", " + columns[23].title + " " + row[23].text : "")
     }
 
     VerticalLayout {
@@ -715,6 +785,12 @@ export component AccessTable inherits Rectangle {
                 root.sort-descending(i);
                 announce(columns[i].title + ", " + AccessTableTexts.sorted-descending);
             }
+            sort-changed(l) => {
+                root.sort-changed(l);
+                // Several levels: say them all ("Type, sorted ascending,
+                // then Size, sorted descending").
+                if (l.length > 1) { announce(sort-words(l)); }
+            }
         }
         // The first column's header stays in place, like its cells.
         Rectangle {
@@ -724,7 +800,7 @@ export component AccessTable inherits Rectangle {
             background: Palette.alternate-background;
             Text {
                 x: 8px;
-                width: parent.width - 26px;
+                width: parent.width - 32px;
                 text: columns.length > 0 ? columns[0].title : "";
                 font-weight: 600;
                 color: Palette.foreground;
@@ -733,8 +809,8 @@ export component AccessTable inherits Rectangle {
                 accessible-role: none;
             }
             Text {
-                x: parent.width - 18px;
-                text: header.sort-column != 0 ? "" : columns[0].sort-order == SortOrder.ascending ? "▲" : columns[0].sort-order == SortOrder.descending ? "▼" : "";
+                x: parent.width - 24px;
+                text: header.arrow-for(0);
                 color: Palette.foreground;
                 vertical-alignment: center;
                 accessible-role: none;
