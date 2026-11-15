@@ -18,7 +18,8 @@ fn row(name: &str, size: u64, modified: &str) -> ModelRc<StandardListViewItem> {
 
 fn main() {
     let count: usize = std::env::args().skip(1).find_map(|a| a.parse().ok()).unwrap_or(2000);
-    let kinds = ["report", "photo", "invoice", "notes", "backup", "setup", "budget", "letter"];
+    // One long name in eight, to show the tooltip for cut-off text.
+    let kinds = ["report", "photo", "invoice", "notes", "backup", "setup", "budget-overview-for-the-whole-department", "letter"];
     let exts = ["pdf", "jpg", "pdf", "txt", "zip", "exe", "xlsx", "docx"];
     let days = ["today", "yesterday", "Monday", "last week", "in May"];
     // (name, size, modified) so we can sort.

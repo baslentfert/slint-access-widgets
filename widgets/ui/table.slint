@@ -232,6 +232,11 @@ export component AccessRow inherits Rectangle {
     callback focus-changed(bool);
 
     out property <bool> has-keyboard-focus: fs.has-focus;
+    // Where the mouse is over this row (for tooltips on cells).
+    out property <bool> hovering: touch.has-hover;
+    out property <length> hover-x: touch.mouse-x;
+    // Escape on this row (e.g. to close a tooltip); accepted when it did.
+    callback escape() -> bool;
     property <bool> is-current: index == state.current;
 
     visible: index < state.count;
@@ -323,6 +328,7 @@ export component AccessRow inherits Rectangle {
             if (e.text == Key.Return) { activated(index); return accept; }
             if (e.text == " ") { toggled(index); return accept; }
             if (e.text == Key.Delete) { deleted(index); return accept; }
+            if (e.text == Key.Escape && escape()) { return accept; }
             if (e.text == Key.Menu || (e.text == Key.F10 && e.modifiers.shift)) {
                 context-menu(index, 16px, root.height);
                 return accept;
@@ -643,12 +649,32 @@ export component AccessTable inherits Rectangle {
                     announce(columns[current-column].title + ", " + (waiting ? AccessTableTexts.loading : rows[view.current][current-column].text));
                 }
 
+                escape => { hide-tip() }
+
                 HorizontalLayout {
-                    for col[c] in columns : Rectangle {
+                    for col[c] in columns : cell := Rectangle {
                         min-width: col.width >= 1px ? col.width : max(col.min-width, 32px);
                         max-width: col.width >= 1px ? col.width : 100000px;
                         horizontal-stretch: col.width >= 1px ? 0 : max(col.horizontal-stretch, 0.0001);
-                        Text {
+
+                        // Cut-off text gets a tooltip with all of it, with
+                        // the mouse (after a moment) and with the keyboard
+                        // (the cell chosen with Left/Right, at once).
+                        property <bool> cut: t.preferred-width > t.width + 0.5px;
+                        property <bool> by-mouse: r.hovering && r.hover-x >= self.x && r.hover-x < self.x + self.width;
+                        property <bool> by-key: c == current-column && n == view.current && view.active && AccessFocus.show;
+                        property <bool> wants-tip: cut && !waiting && (by-mouse || by-key);
+                        property <int> tip-id: n * 1000 + c;
+                        changed wants-tip => {
+                            if (wants-tip) {
+                                offer-tip(tip-id, t.text, self.absolute-position.x - root.absolute-position.x,
+                                    self.absolute-position.y - root.absolute-position.y + self.height, self.width, by-key);
+                            } else {
+                                withdraw-tip(tip-id);
+                            }
+                        }
+
+                        t := Text {
                             x: 8px;
                             width: parent.width - 16px;
                             // Not loaded yet: "Loading…" in the first column,
@@ -683,6 +709,65 @@ export component AccessTable inherits Rectangle {
         }
     }
 
+    // The tooltip for cut-off text (WCAG 1.4.13): shown after 0.6 s with
+    // the mouse or at once with the keyboard, stays while the mouse is on it,
+    // Escape closes it. Only for sighted users: a screen reader already
+    // hears the whole text in the row.
+    property <int> tip-for: -1;
+    property <int> tip-pending: -1;
+    property <string> tip-text;
+    property <length> tip-x;
+    property <length> tip-y;
+    property <length> tip-min-width;
+    property <bool> tip-shown;
+    property <int> tip-closed: -1;
+
+    function offer-tip(id: int, text: string, x: length, y: length, w: length, now: bool) {
+        if (id == tip-closed) { return; }
+        tip-pending = id;
+        tip-text = text;
+        tip-x = x;
+        tip-y = y;
+        tip-min-width = w;
+        if (now) {
+            tip-for = id;
+            tip-shown = true;
+            tip-delay.stop();
+        } else {
+            tip-shown = false;
+            if (tip-delay.running) { tip-delay.restart(); } else { tip-delay.start(); }
+        }
+    }
+    function withdraw-tip(id: int) {
+        if (id == tip-closed) { tip-closed = -1; }
+        if (id != tip-pending && id != tip-for) { return; }
+        // Moving onto the tooltip itself keeps it (hoverable).
+        if (tip-area.has-hover) { return; }
+        tip-pending = -1;
+        tip-for = -1;
+        tip-shown = false;
+        tip-delay.stop();
+    }
+    // Escape: close it, and keep it closed for this cell until it is left.
+    function hide-tip() -> bool {
+        if (!tip-shown) { return false; }
+        tip-closed = tip-for;
+        tip-shown = false;
+        tip-for = -1;
+        return true;
+    }
+    tip-delay := Timer {
+        interval: 600ms;
+        running: false;
+        triggered => {
+            self.stop();
+            if (tip-pending >= 0) {
+                tip-for = tip-pending;
+                tip-shown = true;
+            }
+        }
+    }
+
     // No rows, or still loading: say so, in the table and out loud.
     Rectangle {
         y: header.height;
@@ -713,5 +798,39 @@ export component AccessTable inherits Rectangle {
         accessible-role: AccessibleRole.text;
         accessible-label: self.text;
         accessible-live-region: polite;
+    }
+
+    // The tooltip itself, on top of everything; kept inside the table.
+    tip := Rectangle {
+        visible: tip-shown;
+        x: max(0, min(tip-x, root.width - self.width - 2px));
+        y: tip-y + self.height > root.height ? max(0, tip-y - self.height - 36px) : tip-y;
+        width: min(max(tip-min-width, tip-label.preferred-width + 16px), min(480px, root.width - 4px));
+        height: tip-label.preferred-height + 10px;
+        background: Palette.foreground;
+        border-radius: 4px;
+        drop-shadow-blur: 6px;
+        drop-shadow-color: #0004;
+        accessible-role: none;
+        tip-area := TouchArea { }
+        tip-label := Text {
+            x: 8px;
+            y: 5px;
+            width: parent.width - 16px;
+            text: tip-text;
+            wrap: word-wrap;
+            color: Palette.background;
+            accessible-role: none;
+        }
+    }
+    // Leaving the tooltip with the mouse closes it (unless the keyboard
+    // brought it up).
+    property <bool> on-tip: tip-area.has-hover;
+    changed on-tip => {
+        if (!on-tip && tip-shown && !tip-delay.running) {
+            tip-shown = false;
+            tip-for = -1;
+            tip-pending = -1;
+        }
     }
 }
