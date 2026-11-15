@@ -5,9 +5,14 @@ use a screen reader or only a keyboard can use them as well as anyone else
 (WCAG 2.2 AA / EN 301 549). They follow the active Slint style (fluent,
 cupertino, material, cosmic), light and dark.
 
-**Status: early work, not on crates.io yet.** Tested automatically with the
-Linux accessibility bus (AT-SPI, what Orca reads); Windows (NVDA, Narrator)
-and macOS (VoiceOver) still to be tested.
+```
+cargo add slint-access-widgets
+cargo add --build slint-access-widgets
+```
+
+**Status: young (0.1).** Tested automatically with the Linux accessibility
+bus (AT-SPI, what Orca reads); Windows (NVDA, Narrator) and macOS
+(VoiceOver) still to be tested.
 
 ![The gallery example](docs/gallery.png)
 
