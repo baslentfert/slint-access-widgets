@@ -53,6 +53,70 @@ pub fn find_prefix_by(count: usize, prefix: &str, from: i32, text: impl Fn(usize
         .map_or(0, |i| i as i32 + 1)
 }
 
+/// Rows as text for the clipboard: cells separated by tabs, rows by line
+/// breaks, so pasting into a spreadsheet gives columns (and into an email
+/// or editor plain lines). With `titles`, a first line with the column
+/// titles. Tabs and line breaks inside a cell become spaces.
+pub fn rows_as_text<R>(rows: &impl Model<Data = R>, which: &[usize], titles: Option<&[&str]>) -> String
+where
+    R: Model<Data = StandardListViewItem>,
+{
+    let clean = |s: &str| s.replace(['\t', '\n', '\r'], " ");
+    let mut out = String::new();
+    if let Some(t) = titles {
+        out.push_str(&t.iter().map(|s| clean(s)).collect::<Vec<_>>().join("\t"));
+        out.push('\n');
+    }
+    for &i in which {
+        let Some(row) = rows.row_data(i) else { continue };
+        let cells: Vec<String> = row.iter().map(|c| clean(&c.text)).collect();
+        out.push_str(&cells.join("\t"));
+        out.push('\n');
+    }
+    out
+}
+
+/// Ctrl+C in an `AccessTable`: copies the selected rows (or the current
+/// row) to the clipboard and returns how many, for the announcement.
+///
+/// ```ignore
+/// let (rows, sel) = (model.clone(), selection.clone());
+/// window.on_copy(move |current| slint_access_widgets::copy_rows(&*rows, &sel.rows(), current));
+/// ```
+#[cfg(feature = "clipboard")]
+pub fn copy_rows<R>(rows: &impl Model<Data = R>, selected: &[usize], current: i32) -> i32
+where
+    R: Model<Data = StandardListViewItem>,
+{
+    let which: Vec<usize> = if selected.is_empty() && current >= 0 { vec![current as usize] } else { selected.to_vec() };
+    // Rows still loading (empty) are left out.
+    let which: Vec<usize> = which.into_iter().filter(|&i| rows.row_data(i).is_some_and(|r| r.row_count() > 0)).collect();
+    if which.is_empty() {
+        return 0;
+    }
+    match copy_text(&rows_as_text(rows, &which, None)) {
+        Ok(()) => which.len() as i32,
+        Err(_) => 0,
+    }
+}
+
+/// Puts text on the system clipboard (the `clipboard` feature, via
+/// `arboard`).
+#[cfg(feature = "clipboard")]
+pub fn copy_text(text: &str) -> Result<(), String> {
+    thread_local! {
+        // On Linux the text stays on the clipboard only while this lives.
+        static CLIPBOARD: std::cell::RefCell<Option<arboard::Clipboard>> = const { std::cell::RefCell::new(None) };
+    }
+    CLIPBOARD.with(|c| {
+        let mut c = c.borrow_mut();
+        if c.is_none() {
+            *c = Some(arboard::Clipboard::new().map_err(|e| e.to_string())?);
+        }
+        c.as_mut().unwrap().set_text(text).map_err(|e| e.to_string())
+    })
+}
+
 /// The selection of an `AccessTable` with `multi-select: true`, as in File
 /// Explorer: click or arrows select one row, Shift extends from the anchor,
 /// Ctrl+click or Space adds or removes a row, Ctrl+A selects all.
@@ -233,6 +297,14 @@ mod tests {
         assert_eq!(find_prefix_by(4, "bl", 0, t), 3);
         assert_eq!(find_prefix_by(4, "x", 0, t), 0);
         assert_eq!(find_prefix_by(4, "", 0, t), 0);
+    }
+
+    #[test]
+    fn rows_as_text_for_spreadsheets() {
+        let row = |cells: &[&str]| ModelRc::from(Rc::new(VecModel::from(cells.iter().map(|c| StandardListViewItem::from(*c)).collect::<Vec<_>>())));
+        let rows = VecModel::from(vec![row(&["a.txt", "1 kB"]), row(&["tab\there", "line\nbreak"]), row(&["c", "3"])]);
+        assert_eq!(rows_as_text(&rows, &[0, 2], None), "a.txt\t1 kB\nc\t3\n");
+        assert_eq!(rows_as_text(&rows, &[1], Some(&["Name", "Size"])), "Name\tSize\ntab here\tline break\n");
     }
 
     #[test]

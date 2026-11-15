@@ -20,6 +20,7 @@ export component AppWindow inherits Window {
     callback sort-descending(int);
     callback find(string, int) -> int;
     callback select(int, int) -> int;
+    callback copy(int) -> int;
     callback filter(string);
     callback reload();
 
@@ -50,6 +51,7 @@ export component AppWindow inherits Window {
             loading: root.loading;
             empty-text: @tr("No files match the filter");
             select(r, h) => { root.select(r, h) }
+            copy(c) => { root.copy(c) }
             sort-ascending(i) => { root.sort-ascending(i); }
             sort-descending(i) => { root.sort-descending(i); }
             find(p, f) => { root.find(p, f) }

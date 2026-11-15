@@ -4017,6 +4017,7 @@ dependencies = [
 name = "slint-access-widgets"
 version = "0.1.0"
 dependencies = [
+ "arboard",
  "slint",
 ]
 

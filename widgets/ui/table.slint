@@ -65,6 +65,9 @@ export global AccessTableTexts {
     pure public function selected-count(n: int) -> string {
         @tr("access-widgets" => "{} selected", n)
     }
+    pure public function copied-count(n: int) -> string {
+        @tr("access-widgets" => "{n} row copied" | "{n} rows copied" % n)
+    }
     pure public function shown-of(shown: int, total: int) -> string {
         @tr("access-widgets" => "{} of {} shown", shown, total)
     }
@@ -217,6 +220,8 @@ export component AccessRow inherits Rectangle {
     callback navigate(int, KeyboardModifiers);
     // Ctrl+A.
     callback select-all();
+    // Ctrl+C.
+    callback copy();
     // Enter or double click.
     callback activated(int);
     // Left/Right arrows (-1/+1), for cell navigation.
@@ -323,6 +328,7 @@ export component AccessRow inherits Rectangle {
             if (e.text == Key.Home) { navigate(0, e.modifiers); return accept; }
             if (e.text == Key.End) { navigate(state.count - 1, e.modifiers); return accept; }
             if (e.modifiers.control && (e.text == "a" || e.text == "A")) { select-all(); return accept; }
+            if (e.modifiers.control && (e.text == "c" || e.text == "C")) { copy(); return accept; }
             if (e.text == Key.LeftArrow) { horizontal(-1); return accept; }
             if (e.text == Key.RightArrow) { horizontal(1); return accept; }
             if (e.text == Key.Return) { activated(index); return accept; }
@@ -575,6 +581,10 @@ export component AccessTable inherits Rectangle {
     // is an empty array in `rows`: it shows and reads "Loading…". See
     // `slint_access_widgets::LazyRows`.
     callback rows-needed(first: int, count: int);
+    // Ctrl+C: copy the selected rows (or the current one). Return how many
+    // rows were copied; it is announced. `slint_access_widgets::copy_rows`
+    // does it (with the `clipboard` feature).
+    callback copy(current-row: int) -> int;
 
     public function focus-current() { view.focus-current(); }
     public function set-current-row(i: int) { view.go-to(i); }
@@ -635,6 +645,10 @@ export component AccessTable inherits Rectangle {
                 }
                 select-all => {
                     if (multi-select) { announce(AccessTableTexts.selected-count(select(-1, AccessSelect.all))); }
+                }
+                copy => {
+                    let c = root.copy(view.current);
+                    if (c > 0) { announce(AccessTableTexts.copied-count(c)); }
                 }
                 toggled(i) => {
                     if (multi-select) { announce(AccessTableTexts.selected-count(select(i, AccessSelect.toggle))); }

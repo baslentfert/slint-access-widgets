@@ -68,6 +68,9 @@ SCENARIOS = {
         ("Home", "#1", None),
         ("shift+Down", "#2 selected", "2 selected"),
         ("shift+Down", "#3 selected", "3 selected"),
+        # Copy: announced, and really on the clipboard, as columns.
+        ("ctrl+c", "#3 selected", "3 rows copied"),
+        ("clipboard", "\t", None),
         ("ctrl+Down", "#4", None),
         ("space", "#4 selected", "4 selected"),
         ("ctrl+a", "selected", "2000 selected"),
@@ -132,6 +135,15 @@ def run(name):
         pump(1.0)
         heard.clear()
         for key, want_focus, want_heard in SCENARIOS[name]:
+            if key == "clipboard":
+                # The text on the clipboard must contain `want_focus` and
+                # have three lines (three rows).
+                clip = subprocess.run(["xclip", "-o", "-selection", "clipboard"], capture_output=True, text=True).stdout
+                ok = want_focus in clip and clip.count("\n") == 3
+                print(f"{'ok  ' if ok else 'FAIL'} clipboard  {clip!r}")
+                if not ok:
+                    return False
+                continue
             if key == "wait":
                 pump(1.0)
             else:

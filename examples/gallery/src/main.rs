@@ -60,6 +60,12 @@ fn main() {
         w.on_select(move |r, h| s.apply(r, h));
     }
     {
+        // Ctrl+C: the selected rows (or the current one), as tab-separated
+        // text: pastes as columns into a spreadsheet.
+        let (model, s) = (model.clone(), selection.clone());
+        w.on_copy(move |current| slint_access_widgets::copy_rows(&*model, &s.rows(), current));
+    }
+    {
         let (filter, fill) = (filter.clone(), fill.clone());
         w.on_filter(move |t| {
             *filter.borrow_mut() = t.to_string();

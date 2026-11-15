@@ -4,47 +4,54 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: po-bundle\n"
 
-#: ui/table.slint:57
+#: ui/table.slint:58
 msgctxt "access-widgets"
 msgid "sorted ascending"
 msgstr ""
 
-#: ui/table.slint:58
+#: ui/table.slint:59
 msgctxt "access-widgets"
 msgid "sorted descending"
 msgstr ""
 
-#: ui/table.slint:59
+#: ui/table.slint:60
 msgctxt "access-widgets"
 msgid "column header"
 msgstr ""
 
-#: ui/table.slint:60
+#: ui/table.slint:61
 msgctxt "access-widgets"
 msgid "items"
 msgstr ""
 
-#: ui/table.slint:61
+#: ui/table.slint:62
 msgctxt "access-widgets"
 msgid "Column headers"
 msgstr ""
 
-#: ui/table.slint:62
+#: ui/table.slint:63
 msgctxt "access-widgets"
 msgid "No items"
 msgstr ""
 
-#: ui/table.slint:63
+#: ui/table.slint:64
 msgctxt "access-widgets"
 msgid "Loading…"
 msgstr ""
 
-#: ui/table.slint:65
+#: ui/table.slint:66
 msgctxt "access-widgets"
 msgid "{} selected"
 msgstr ""
 
-#: ui/table.slint:68
+#: ui/table.slint:69
+msgctxt "access-widgets"
+msgid "{n} row copied"
+msgid_plural "{n} rows copied"
+msgstr[0] ""
+msgstr[1] ""
+
+#: ui/table.slint:72
 msgctxt "access-widgets"
 msgid "{} of {} shown"
 msgstr ""

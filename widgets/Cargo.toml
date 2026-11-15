@@ -9,8 +9,14 @@ keywords = ["slint", "accessibility", "a11y", "table", "wcag"]
 categories = ["gui", "accessibility"]
 readme = "../README.md"
 
+[features]
+default = []
+# Ctrl+C in a table copies to the system clipboard (`copy_rows`, `copy_text`).
+clipboard = ["dep:arboard"]
+
 [dependencies]
 slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2"] }
+arboard = { version = "3", default-features = false, optional = true }
 
 # Our @tr texts and their translations, for po-bundle (and anyone else).
 [package.metadata.po-bundle]
