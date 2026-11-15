@@ -21,6 +21,7 @@ export component AppWindow inherits Window {
     property <AccessDensity> density: density-box.current-index == 0 ? AccessDensity.compact : density-box.current-index == 2 ? AccessDensity.comfortable : AccessDensity.standard;
     // The whole sort, first level first (Shift+click adds levels).
     callback sort-changed([AccessSort]);
+    callback move-column(int, int);
     callback find(string, int) -> int;
     callback select(int, int) -> int;
     callback copy(int) -> int;
@@ -58,6 +59,7 @@ export component AppWindow inherits Window {
             select(r, h) => { root.select(r, h) }
             copy(c) => { root.copy(c) }
             sort-changed(l) => { root.sort-changed(l); }
+            move-column(f, t) => { root.move-column(f, t); }
             find(p, f) => { root.find(p, f) }
             row-activated(i) => { status = @tr("Opened {}", files[i][0].text); }
         }

@@ -26,7 +26,8 @@ fn extra(name: &str) -> [String; 3] {
     [kind.to_string(), folders[n % folders.len()].to_string(), owners[n / 3 % owners.len()].to_string()]
 }
 
-fn row(name: &str, size: u64, modified: &str) -> ModelRc<StandardListViewItem> {
+/// One row; `order` says which column is shown where (after "Move left/right").
+fn row(name: &str, size: u64, modified: &str, order: &[usize]) -> ModelRc<StandardListViewItem> {
     let size = if size >= 1 << 20 { format!("{:.1} MB", size as f64 / (1 << 20) as f64) } else { format!("{} kB", size.div_ceil(1024)) };
     let mut cells = vec![
         StandardListViewItem::from(SharedString::from(name)),
@@ -34,7 +35,7 @@ fn row(name: &str, size: u64, modified: &str) -> ModelRc<StandardListViewItem> {
         StandardListViewItem::from(SharedString::from(modified)),
     ];
     cells.extend(extra(name).into_iter().map(|t| StandardListViewItem::from(SharedString::from(t))));
-    ModelRc::from(Rc::new(VecModel::from(cells)))
+    ModelRc::from(Rc::new(VecModel::from(order.iter().map(|&i| cells[i].clone()).collect::<Vec<_>>())))
 }
 
 fn main() {
@@ -55,15 +56,18 @@ fn main() {
     let filter = Rc::new(std::cell::RefCell::new(String::new()));
     let model = Rc::new(VecModel::<ModelRc<StandardListViewItem>>::default());
     let selection = Rc::new(slint_access_widgets::Selection::new(0));
+    // Column order: shown position -> data column (0 name, 1 size, …).
+    let order = Rc::new(std::cell::RefCell::new((0..6).collect::<Vec<usize>>()));
     // Rows on screen: the data, filtered. The selection stays on the same
     // files (the name is the id), wherever sorting or filtering puts them.
     let fill = {
-        let (data, model, filter, selection) = (data.clone(), model.clone(), filter.clone(), selection.clone());
+        let (data, model, filter, selection, order) = (data.clone(), model.clone(), filter.clone(), selection.clone(), order.clone());
         move || {
             let f = filter.borrow().to_lowercase();
             let shown: Vec<_> = data.borrow().iter().filter(|(n, ..)| n.to_lowercase().contains(&f)).cloned().collect();
             selection.set_rows_by_id(shown.iter().map(|(n, ..)| n.clone()));
-            model.set_vec(shown.iter().map(|(n, s, m)| row(n, *s, m)).collect::<Vec<_>>());
+            let order = order.borrow();
+            model.set_vec(shown.iter().map(|(n, s, m)| row(n, *s, m, &order)).collect::<Vec<_>>());
         }
     };
     fill();
@@ -117,12 +121,14 @@ fn main() {
     // first level, on a tie the next one. `sort_by` is stable, so rows that
     // are equal on every level keep their order.
     let sort = {
-        let data = data.clone();
+        let (data, order) = (data.clone(), order.clone());
         move |levels: &[AccessSort]| {
-            let compare = |a: &(String, u64, String), b: &(String, u64, String), col: i32| match col {
+            // The table speaks of shown positions; the data of its own columns.
+            let order = order.borrow().clone();
+            let compare = |a: &(String, u64, String), b: &(String, u64, String), shown: i32| match order[shown as usize] as i32 {
                 1 => a.1.cmp(&b.1),
                 2 => a.2.cmp(&b.2),
-                3..=5 => extra(&a.0)[col as usize - 3].cmp(&extra(&b.0)[col as usize - 3]),
+                col @ 3..=5 => extra(&a.0)[col as usize - 3].cmp(&extra(&b.0)[col as usize - 3]),
                 _ => a.0.to_lowercase().cmp(&b.0.to_lowercase()),
             };
             data.borrow_mut().sort_by(|a, b| {
@@ -133,15 +139,39 @@ fn main() {
         }
     };
     // Sort, and keep the current row on the same file (as File Explorer).
-    let (ww, m, sel) = (w.as_weak(), model.clone(), selection.clone());
-    w.on_sort_changed(move |levels| {
-        let w = ww.unwrap();
-        let current = m.row_data(w.get_current_row().max(0) as usize).and_then(|r| r.row_data(0)).map(|c| c.text.to_string());
-        sort(&levels.iter().collect::<Vec<_>>());
-        fill();
-        if let Some(i) = current.and_then(|id| sel.index_of(&id)) {
-            w.invoke_keep_current(i as i32);
+    // The name of the current row (its id), wherever the name column is.
+    let current_id = {
+        let (m, order) = (model.clone(), order.clone());
+        move |row: i32| {
+            let name_at = order.borrow().iter().position(|&c| c == 0).unwrap_or(0);
+            m.row_data(row.max(0) as usize).and_then(|r| r.row_data(name_at)).map(|c| c.text.to_string())
         }
-    });
+    };
+    {
+        let (ww, sel, fill, current_id) = (w.as_weak(), selection.clone(), fill.clone(), current_id.clone());
+        w.on_sort_changed(move |levels| {
+            let w = ww.unwrap();
+            let current = current_id(w.get_current_row());
+            sort(&levels.iter().collect::<Vec<_>>());
+            fill();
+            if let Some(i) = current.and_then(|id| sel.index_of(&id)) {
+                w.invoke_keep_current(i as i32);
+            }
+        });
+    }
+    // "Move left/right" in the header menu: swap the two columns in the
+    // titles and in every row.
+    {
+        let ww = w.as_weak();
+        w.on_move_column(move |from, to| {
+            let w = ww.unwrap();
+            let (f, t) = (from as usize, to as usize);
+            order.borrow_mut().swap(f, t);
+            let mut cols: Vec<_> = w.get_columns().iter().collect();
+            cols.swap(f, t);
+            w.set_columns(Rc::new(VecModel::from(cols)).into());
+            fill();
+        });
+    }
     w.run().unwrap();
 }

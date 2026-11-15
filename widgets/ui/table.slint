@@ -17,6 +17,7 @@
 
 import { Palette, ScrollView } from "std-widgets.slint";
 import { AccessFocus } from "focus.slint";
+import { AccessMenuEntry, AccessMenuItem } from "menu.slint";
 
 // Row height: compact 24 px, standard 32 px, comfortable 40 px (as in
 // IBM Carbon); rows grow when the text gets larger.
@@ -68,10 +69,25 @@ export global AccessTableTexts {
     pure public function selected-count(n: int) -> string {
         @tr("access-widgets" => "{} selected", n)
     }
+    pure public function column-position(n: int, of: int) -> string {
+        @tr("access-widgets" => "column {} of {}", n, of)
+    }
     pure public function sort-level(n: int) -> string {
         @tr("access-widgets" => "level {}", n)
     }
     in-out property <string> then: @tr("access-widgets" => "then");
+    // The column header menu.
+    in-out property <string> sort-ascending-command: @tr("access-widgets" => "Sort ascending");
+    in-out property <string> sort-descending-command: @tr("access-widgets" => "Sort descending");
+    in-out property <string> add-to-sort: @tr("access-widgets" => "Add to sort");
+    in-out property <string> size-to-fit: @tr("access-widgets" => "Size to fit");
+    in-out property <string> hide-column: @tr("access-widgets" => "Hide column");
+    in-out property <string> columns-menu: @tr("access-widgets" => "Columns");
+    in-out property <string> move-left: @tr("access-widgets" => "Move left");
+    in-out property <string> move-right: @tr("access-widgets" => "Move right");
+    in-out property <string> column-menu: @tr("access-widgets" => "column menu");
+    in-out property <string> column-hidden: @tr("access-widgets" => "hidden");
+    in-out property <string> column-shown: @tr("access-widgets" => "shown");
     pure public function copied-count(n: int) -> string {
         @tr("access-widgets" => "{n} row copied" | "{n} rows copied" % n)
     }
@@ -408,6 +424,8 @@ component HeaderCell inherits Rectangle {
     in property <length> resize-delta;
     // A click; true with Shift held (add a sort level).
     callback clicked(bool);
+    // Right click on this cell, at `x` from its left.
+    callback context(length);
     callback set-width(length);
     // Double click on the edge: fit the column to its contents.
     callback fit();
@@ -417,9 +435,11 @@ component HeaderCell inherits Rectangle {
     // The width the title needs (for fitting).
     out property <length> title-width: title.preferred-width + 34px;
 
-    min-width: column.width >= 1px ? column.width : max(column.min-width, 32px);
-    max-width: column.width >= 1px ? column.width : 100000px;
-    horizontal-stretch: column.width >= 1px ? 0 : max(column.horizontal-stretch, 0.0001);
+    // A column with a negative width is hidden (see the header menu).
+    visible: column.width >= 0;
+    min-width: column.width < 0 ? 0 : column.width >= 1px ? column.width : max(column.min-width, 32px);
+    max-width: column.width < 0 ? 0 : column.width >= 1px ? column.width : 100000px;
+    horizontal-stretch: column.width < 0 ? 0 : column.width >= 1px ? 0 : max(column.horizontal-stretch, 0.0001);
 
     function apply(delta: length) {
         set-width(max(max(column.min-width, 32px), (column.width >= 1px ? column.width : root.width) + delta));
@@ -445,7 +465,12 @@ component HeaderCell inherits Rectangle {
     }
     TouchArea {
         property <bool> shift;
-        pointer-event(e) => { if (e.kind == PointerEventKind.down) { self.shift = e.modifiers.shift; } }
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) {
+                self.shift = e.modifiers.shift;
+                if (e.button == PointerEventButton.right) { context(self.mouse-x); }
+            }
+        }
         clicked => { root.clicked(self.shift); }
     }
     // Drag the right edge to resize (keyboard: Ctrl+Left/Right).
@@ -491,6 +516,10 @@ export component AccessTableHeader inherits Rectangle {
     // rows like that (`a.cmp(b).then_with(…)`). Single-level sorts also
     // call `sort-ascending`/`sort-descending`.
     callback sort-changed([AccessSort]);
+    // "Move left/right" in the header menu: put column `from` at `to`. Only
+    // your app can reorder the cells of the rows too, so it does the move
+    // (reorder `columns` and every row the same way).
+    callback move-column(from: int, to: int);
     // False: the headers are just labels (no sorting, no "sorted" words).
     in property <bool> sortable: true;
     callback sort-ascending(int);
@@ -514,13 +543,13 @@ export component AccessTableHeader inherits Rectangle {
     out property <length> needed-width: widths.min-width;
     // The width of the first column when the table scrolls sideways (all
     // columns at their minimum then), for keeping it in place.
-    out property <length> first-width: columns.length == 0 ? 0 : columns[0].width >= 1px ? columns[0].width : max(columns[0].min-width, 32px);
+    out property <length> first-width: columns.length == 0 || columns[0].width < 0 ? 0 : columns[0].width >= 1px ? columns[0].width : max(columns[0].min-width, 32px);
 
     // Measures `needed-width` (never shown).
     widths := HorizontalLayout {
         visible: false;
         for col in columns : Rectangle {
-            min-width: col.width >= 1px ? col.width : max(col.min-width, 32px);
+            min-width: col.width < 0 ? 0 : col.width >= 1px ? col.width : max(col.min-width, 32px);
         }
     }
 
@@ -597,6 +626,74 @@ export component AccessTableHeader inherits Rectangle {
             : (columns[i].sort-order == SortOrder.descending ? "▼" : "▲") + (sort-column2 >= 0 ? level-of(i) : "")
     }
 
+    // Sort on one column, this way round (from the menu).
+    function set-sort(i: int, ascending: bool) {
+        if (!sortable) { return; }
+        sort-column = i;
+        sort-column2 = -1;
+        sort-column3 = -1;
+        columns[i].sort-order = ascending ? SortOrder.ascending : SortOrder.descending;
+        if (ascending) { sort-ascending(i); } else { sort-descending(i); }
+        sort-changed(levels());
+    }
+
+    // Hide or show column `i` (a negative width hides; showing gives it its
+    // natural width again). The last visible column cannot be hidden.
+    // How many columns are shown (up to 24 counted; Slint has no loops).
+    out property <int> shown-count: (columns.length > 0 && columns[0].width >= 0 ? 1 : 0) + (columns.length > 1 && columns[1].width >= 0 ? 1 : 0) + (columns.length > 2 && columns[2].width >= 0 ? 1 : 0) + (columns.length > 3 && columns[3].width >= 0 ? 1 : 0) + (columns.length > 4 && columns[4].width >= 0 ? 1 : 0) + (columns.length > 5 && columns[5].width >= 0 ? 1 : 0) + (columns.length > 6 && columns[6].width >= 0 ? 1 : 0) + (columns.length > 7 && columns[7].width >= 0 ? 1 : 0) + (columns.length > 8 && columns[8].width >= 0 ? 1 : 0) + (columns.length > 9 && columns[9].width >= 0 ? 1 : 0) + (columns.length > 10 && columns[10].width >= 0 ? 1 : 0) + (columns.length > 11 && columns[11].width >= 0 ? 1 : 0) + (columns.length > 12 && columns[12].width >= 0 ? 1 : 0) + (columns.length > 13 && columns[13].width >= 0 ? 1 : 0) + (columns.length > 14 && columns[14].width >= 0 ? 1 : 0) + (columns.length > 15 && columns[15].width >= 0 ? 1 : 0) + (columns.length > 16 && columns[16].width >= 0 ? 1 : 0) + (columns.length > 17 && columns[17].width >= 0 ? 1 : 0) + (columns.length > 18 && columns[18].width >= 0 ? 1 : 0) + (columns.length > 19 && columns[19].width >= 0 ? 1 : 0) + (columns.length > 20 && columns[20].width >= 0 ? 1 : 0) + (columns.length > 21 && columns[21].width >= 0 ? 1 : 0) + (columns.length > 22 && columns[22].width >= 0 ? 1 : 0) + (columns.length > 23 && columns[23].width >= 0 ? 1 : 0);
+    // Shown or hidden: for an announcement.
+    callback column-toggled(column: int, shown: bool);
+    public function toggle-column(i: int) {
+        if (columns[i].width < 0) {
+            columns[i].width = 0;
+            column-toggled(i, true);
+        } else if (shown-count > 1) {
+            columns[i].width = -1px;
+            if (current-column == i) { current-column = next-shown(i, i < columns.length - 1 ? 1 : -1); }
+            column-toggled(i, false);
+        }
+    }
+
+    // The next shown column from `i` in direction `d` (hidden ones are
+    // skipped; up to four in a row).
+    pure function shown(i: int) -> bool { i >= 0 && i < columns.length && columns[i].width >= 0 }
+    pure public function next-shown(i: int, d: int) -> int {
+        shown(i + d) ? i + d : shown(i + 2 * d) ? i + 2 * d : shown(i + 3 * d) ? i + 3 * d
+            : shown(i + 4 * d) ? i + 4 * d : shown(i + 5 * d) ? i + 5 * d : i
+    }
+
+    // Swap two neighbouring columns: the sort marks and the focus go along;
+    // the app moves the data (`move-column`).
+    function do-move(from: int, to: int) {
+        if (sort-column == from) { sort-column = to; } else if (sort-column == to) { sort-column = from; }
+        if (sort-column2 == from) { sort-column2 = to; } else if (sort-column2 == to) { sort-column2 = from; }
+        if (sort-column3 == from) { sort-column3 = to; } else if (sort-column3 == to) { sort-column3 = from; }
+        current-column = to;
+        move-column(from, to);
+    }
+
+    // The column menu (right click, Menu key or Shift+F10): `AccessTable`
+    // shows it (an `AccessMenu`-style list that screen readers can follow).
+    // `x` is where, from the left of this header.
+    callback menu-requested(column: int, x: length);
+    property <length> menu-x;
+    public function show-menu(i: int) {
+        menu-requested(i, menu-x);
+    }
+    // Give the focus back (after the menu closes).
+    public function focus-header() { fs.focus(); }
+    // An item of the column menu was chosen (see `ColumnMenu`).
+    public function menu-action(c: int, item: int) {
+        if (item == 0) { set-sort(c, true); }
+        else if (item == 1) { set-sort(c, false); }
+        else if (item == 2) { add-sort(c); }
+        else if (item == 3) { request-fit(c); }
+        else if (item == 4) { toggle-column(c); }
+        else if (item == 5 && c > 0) { do-move(c, c - 1); }
+        else if (item == 6 && c < columns.length - 1) { do-move(c, c + 1); }
+        else if (item >= 7) { toggle-column(item - 7); }
+    }
+
     function resize(i: int, delta: length) {
         resize-column = i;
         resize-delta = delta;
@@ -619,12 +716,19 @@ export component AccessTableHeader inherits Rectangle {
             reject
         }
         key-pressed(e) => {
-            if (e.text == Key.LeftArrow && e.modifiers.control) { resize(current-column, -16px); return accept; }
-            if (e.text == Key.RightArrow && e.modifiers.control) { resize(current-column, 16px); return accept; }
-            if (e.text == Key.LeftArrow) { current-column = max(0, current-column - 1); return accept; }
-            if (e.text == Key.RightArrow) { current-column = min(columns.length - 1, current-column + 1); return accept; }
-            if (e.text == Key.Home) { current-column = 0; return accept; }
-            if (e.text == Key.End) { current-column = columns.length - 1; return accept; }
+            if (e.text == Key.LeftArrow && e.modifiers.control && e.modifiers.shift && current-column > 0) { do-move(current-column, current-column - 1); return accept; }
+            if (e.text == Key.RightArrow && e.modifiers.control && e.modifiers.shift && current-column < columns.length - 1) { do-move(current-column, current-column + 1); return accept; }
+            if (e.text == Key.LeftArrow && e.modifiers.control && !e.modifiers.shift) { resize(current-column, -16px); return accept; }
+            if (e.text == Key.RightArrow && e.modifiers.control && !e.modifiers.shift) { resize(current-column, 16px); return accept; }
+            if (e.text == Key.LeftArrow) { current-column = next-shown(current-column, -1); return accept; }
+            if (e.text == Key.RightArrow) { current-column = next-shown(current-column, 1); return accept; }
+            if (e.text == Key.Home) { current-column = shown(0) ? 0 : next-shown(0, 1); return accept; }
+            if (e.text == Key.End) { current-column = shown(columns.length - 1) ? columns.length - 1 : next-shown(columns.length - 1, -1); return accept; }
+            // The menu: Menu key or Shift+F10.
+            if (e.text == Key.Menu || (e.text == Key.F10 && e.modifiers.shift)) { show-menu(current-column); return accept; }
+            // Everything in the menu has a key too: Ctrl+Shift+Left/Right
+            // moves the column, Delete hides it.
+            if (e.text == Key.Delete) { toggle-column(current-column); return accept; }
             if ((e.text == Key.Return || e.text == " ") && e.modifiers.shift) { add-sort(current-column); return accept; }
             if (e.text == Key.Return || e.text == " ") { sort(current-column); return accept; }
             // Ctrl and + : fit the column to its contents (as in File Explorer).
@@ -656,7 +760,17 @@ export component AccessTableHeader inherits Rectangle {
             }
             set-width(w) => { columns[i].width = w; }
             fit => { request-fit(i); }
-            reveal(x, w) => { reveal-x(x, w); }
+            reveal(x, w) => {
+                reveal-x(x, w);
+                menu-x = x;
+            }
+            context(x) => {
+                AccessFocus.keyboard = false;
+                current-column = i;
+                fs.focus();
+                menu-requested(i, self.x + x);
+            }
+
             property <int> fit-ticks: fit-tick;
             changed fit-ticks => { if (fit-me == i) { fit-column(i, self.title-width); } }
         }
@@ -670,6 +784,136 @@ export component AccessTableHeader inherits Rectangle {
             fit => { request-fit(i); }
             property <int> fit-ticks: fit-tick;
             changed fit-ticks => { if (fit-me == i) { fit-column(i, self.title-width); } }
+        }
+    }
+}
+
+
+// The column menu of `AccessTable`: the actions for one column, then all
+// columns with a tick to show or hide them. Items are the same as in
+// `AccessMenu` (focus per item, so screen readers follow).
+component ColumnMenu inherits Rectangle {
+    in property <[TableColumn]> columns;
+    in property <int> column;
+    in property <bool> sortable;
+    in property <bool> can-add-sort;
+    in property <bool> can-hide;
+    in property <string> label;
+    // 0 sort ascending, 1 sort descending, 2 add to sort, 3 size to fit,
+    // 4 hide, 5 move left, 6 move right, 7 + i: show or hide column i.
+    callback activated(int);
+    callback closed();
+
+    property <bool> shown;
+    property <int> current;
+    property <int> focus-tick;
+    property <length> at-x;
+    property <length> at-y;
+    property <int> count: 7 + columns.length;
+
+    public function open(x: length, y: length) {
+        at-x = x;
+        at-y = y;
+        current = first-ok(0, 1);
+        shown = true;
+        focus-tick += 1;
+    }
+    public function close() {
+        if (!shown) { return; }
+        shown = false;
+        closed();
+    }
+
+    pure function enabled-at(i: int) -> bool {
+        i < 0 || i >= count ? false
+            : i <= 1 ? sortable
+            : i == 2 ? sortable && can-add-sort
+            : i == 4 ? can-hide
+            : i == 5 ? column > 0
+            : i == 6 ? column < columns.length - 1
+            : true
+    }
+    pure function title-at(i: int) -> string {
+        i == 0 ? AccessTableTexts.sort-ascending-command : i == 1 ? AccessTableTexts.sort-descending-command
+            : i == 2 ? AccessTableTexts.add-to-sort : i == 3 ? AccessTableTexts.size-to-fit
+            : i == 4 ? AccessTableTexts.hide-column : i == 5 ? AccessTableTexts.move-left
+            : i == 6 ? AccessTableTexts.move-right : i - 7 < columns.length ? columns[i - 7].title : ""
+    }
+    pure function first-ok(i: int, d: int) -> int {
+        enabled-at(i) ? i : enabled-at(i + d) ? i + d : enabled-at(i + 2 * d) ? i + 2 * d
+            : enabled-at(i + 3 * d) ? i + 3 * d : enabled-at(i + 4 * d) ? i + 4 * d : current
+    }
+    function move(d: int) {
+        if (d <= -1000) { current = first-ok(0, 1); }
+        else if (d >= 1000) { current = first-ok(count - 1, -1); }
+        else {
+            let next = first-ok(current + d, d);
+            current = next != current ? next : d > 0 ? first-ok(0, 1) : first-ok(count - 1, -1);
+        }
+        focus-tick += 1;
+    }
+    pure function starts(i: int, l: string) -> bool { enabled-at(i) && title-at(i).to-lowercase().starts-with(l) }
+    function jump(l: string) {
+        let a = mod(current + 1, count);
+        let b = mod(current + 2, count);
+        let c = mod(current + 3, count);
+        let d = mod(current + 4, count);
+        let e = mod(current + 5, count);
+        let f = mod(current + 6, count);
+        let g = mod(current + 7, count);
+        let h = mod(current + 8, count);
+        current = starts(a, l) ? a : starts(b, l) ? b : starts(c, l) ? c : starts(d, l) ? d
+            : starts(e, l) ? e : starts(f, l) ? f : starts(g, l) ? g : starts(h, l) ? h : current;
+        focus-tick += 1;
+    }
+
+    visible: shown;
+    TouchArea {
+        enabled: shown;
+        clicked => { close(); }
+    }
+    box := Rectangle {
+        x: max(0, min(at-x, root.width - self.width - 2px));
+        y: at-y + self.height > root.height ? max(0, at-y - self.height) : at-y;
+        width: max(220px, list.preferred-width);
+        height: min(list.preferred-height, root.height);
+        background: Palette.background;
+        border-width: 1px;
+        border-color: Palette.border;
+        border-radius: 4px;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: #0005;
+        clip: true;
+        accessible-role: AccessibleRole.list;
+        accessible-label: label;
+        accessible-item-count: count;
+
+        list := VerticalLayout {
+            padding: 4px;
+            for i in 7 : AccessMenuEntry {
+                item: { title: title-at(i), enabled: enabled-at(i), separator: i == 3 || i == 5 };
+                index: i;
+                count: count;
+                current: i == current;
+                focus-tick: focus-tick;
+                chosen => { close(); activated(i); }
+                move(d) => { root.move(d); }
+                jump(l) => { root.jump(l); }
+                close => { root.close(); }
+                hovered => { if (enabled-at(i)) { current = i; focus-tick += 1; } }
+            }
+            for col[c] in columns : AccessMenuEntry {
+                item: { title: col.title, enabled: true, checkable: true, checked: col.width >= 0, separator: c == 0 };
+                index: 7 + c;
+                count: count;
+                current: 7 + c == current;
+                focus-tick: focus-tick;
+                chosen => { close(); activated(7 + c); }
+                move(d) => { root.move(d); }
+                jump(l) => { root.jump(l); }
+                close => { root.close(); }
+                hovered => { current = 7 + c; focus-tick += 1; }
+            }
         }
     }
 }
@@ -704,6 +948,9 @@ export component AccessTable inherits Rectangle {
     // The whole sort (Shift+click or Shift+Enter adds levels), first level
     // first. Handle this or the two above, not both.
     callback sort-changed([AccessSort]);
+    // "Move left/right" in the header menu: swap column `from` with `to`,
+    // in `columns` and in every row (only your app can do that).
+    callback move-column(from: int, to: int);
     callback current-row-changed(int);
     // Enter or double click on a row.
     callback row-activated(int);
@@ -756,7 +1003,7 @@ export component AccessTable inherits Rectangle {
 
     pure function row-label(row: [StandardListViewItem]) -> string {
         // Up to 24 columns (Slint has no loops in expressions).
-        (row.length > 0 ? row[0].text : "") + (columns.length > 1 && row.length > 1 ? ", " + columns[1].title + " " + row[1].text : "") + (columns.length > 2 && row.length > 2 ? ", " + columns[2].title + " " + row[2].text : "") + (columns.length > 3 && row.length > 3 ? ", " + columns[3].title + " " + row[3].text : "") + (columns.length > 4 && row.length > 4 ? ", " + columns[4].title + " " + row[4].text : "") + (columns.length > 5 && row.length > 5 ? ", " + columns[5].title + " " + row[5].text : "") + (columns.length > 6 && row.length > 6 ? ", " + columns[6].title + " " + row[6].text : "") + (columns.length > 7 && row.length > 7 ? ", " + columns[7].title + " " + row[7].text : "") + (columns.length > 8 && row.length > 8 ? ", " + columns[8].title + " " + row[8].text : "") + (columns.length > 9 && row.length > 9 ? ", " + columns[9].title + " " + row[9].text : "") + (columns.length > 10 && row.length > 10 ? ", " + columns[10].title + " " + row[10].text : "") + (columns.length > 11 && row.length > 11 ? ", " + columns[11].title + " " + row[11].text : "") + (columns.length > 12 && row.length > 12 ? ", " + columns[12].title + " " + row[12].text : "") + (columns.length > 13 && row.length > 13 ? ", " + columns[13].title + " " + row[13].text : "") + (columns.length > 14 && row.length > 14 ? ", " + columns[14].title + " " + row[14].text : "") + (columns.length > 15 && row.length > 15 ? ", " + columns[15].title + " " + row[15].text : "") + (columns.length > 16 && row.length > 16 ? ", " + columns[16].title + " " + row[16].text : "") + (columns.length > 17 && row.length > 17 ? ", " + columns[17].title + " " + row[17].text : "") + (columns.length > 18 && row.length > 18 ? ", " + columns[18].title + " " + row[18].text : "") + (columns.length > 19 && row.length > 19 ? ", " + columns[19].title + " " + row[19].text : "") + (columns.length > 20 && row.length > 20 ? ", " + columns[20].title + " " + row[20].text : "") + (columns.length > 21 && row.length > 21 ? ", " + columns[21].title + " " + row[21].text : "") + (columns.length > 22 && row.length > 22 ? ", " + columns[22].title + " " + row[22].text : "") + (columns.length > 23 && row.length > 23 ? ", " + columns[23].title + " " + row[23].text : "")
+        (row.length > 0 && columns.length > 0 && columns[0].width >= 0 ? row[0].text : "") + (columns.length > 1 && row.length > 1 && columns[1].width >= 0 ? ", " + columns[1].title + " " + row[1].text : "") + (columns.length > 2 && row.length > 2 && columns[2].width >= 0 ? ", " + columns[2].title + " " + row[2].text : "") + (columns.length > 3 && row.length > 3 && columns[3].width >= 0 ? ", " + columns[3].title + " " + row[3].text : "") + (columns.length > 4 && row.length > 4 && columns[4].width >= 0 ? ", " + columns[4].title + " " + row[4].text : "") + (columns.length > 5 && row.length > 5 && columns[5].width >= 0 ? ", " + columns[5].title + " " + row[5].text : "") + (columns.length > 6 && row.length > 6 && columns[6].width >= 0 ? ", " + columns[6].title + " " + row[6].text : "") + (columns.length > 7 && row.length > 7 && columns[7].width >= 0 ? ", " + columns[7].title + " " + row[7].text : "") + (columns.length > 8 && row.length > 8 && columns[8].width >= 0 ? ", " + columns[8].title + " " + row[8].text : "") + (columns.length > 9 && row.length > 9 && columns[9].width >= 0 ? ", " + columns[9].title + " " + row[9].text : "") + (columns.length > 10 && row.length > 10 && columns[10].width >= 0 ? ", " + columns[10].title + " " + row[10].text : "") + (columns.length > 11 && row.length > 11 && columns[11].width >= 0 ? ", " + columns[11].title + " " + row[11].text : "") + (columns.length > 12 && row.length > 12 && columns[12].width >= 0 ? ", " + columns[12].title + " " + row[12].text : "") + (columns.length > 13 && row.length > 13 && columns[13].width >= 0 ? ", " + columns[13].title + " " + row[13].text : "") + (columns.length > 14 && row.length > 14 && columns[14].width >= 0 ? ", " + columns[14].title + " " + row[14].text : "") + (columns.length > 15 && row.length > 15 && columns[15].width >= 0 ? ", " + columns[15].title + " " + row[15].text : "") + (columns.length > 16 && row.length > 16 && columns[16].width >= 0 ? ", " + columns[16].title + " " + row[16].text : "") + (columns.length > 17 && row.length > 17 && columns[17].width >= 0 ? ", " + columns[17].title + " " + row[17].text : "") + (columns.length > 18 && row.length > 18 && columns[18].width >= 0 ? ", " + columns[18].title + " " + row[18].text : "") + (columns.length > 19 && row.length > 19 && columns[19].width >= 0 ? ", " + columns[19].title + " " + row[19].text : "") + (columns.length > 20 && row.length > 20 && columns[20].width >= 0 ? ", " + columns[20].title + " " + row[20].text : "") + (columns.length > 21 && row.length > 21 && columns[21].width >= 0 ? ", " + columns[21].title + " " + row[21].text : "") + (columns.length > 22 && row.length > 22 && columns[22].width >= 0 ? ", " + columns[22].title + " " + row[22].text : "") + (columns.length > 23 && row.length > 23 && columns[23].width >= 0 ? ", " + columns[23].title + " " + row[23].text : "")
     }
 
     VerticalLayout {
@@ -769,6 +1016,18 @@ export component AccessTable inherits Rectangle {
             width: max(parent.width, self.needed-width);
             columns <=> root.columns;
             reveal-x(x, w) => { view.reveal-x(x, w); }
+            column-toggled(c, on) => {
+                announce(columns[c].title + ", " + (on ? AccessTableTexts.column-shown : AccessTableTexts.column-hidden));
+            }
+            menu-requested(c, x) => {
+                menu-col = c;
+                column-menu.open(x + view.content-x, header.height);
+            }
+            move-column(f, t) => {
+                root.move-column(f, t);
+                if (current-column == f) { current-column = t; }
+                announce(columns[t].title + ", " + AccessTableTexts.column-position(t + 1, columns.length));
+            }
             fit-column(i, tw) => {
                 // Every cell on screen of column i says how wide its text is.
                 fit-col = i;
@@ -860,7 +1119,7 @@ export component AccessTable inherits Rectangle {
                 typed(t) => { view.type-ahead(t); }
                 focus-changed(f) => { view.active = f; }
                 horizontal(d) => {
-                    current-column = max(0, min(columns.length - 1, current-column + d));
+                    current-column = header.next-shown(current-column, d);
                     // Read just that cell: "Size, 2 MB".
                     announce(columns[current-column].title + ", " + (waiting ? AccessTableTexts.loading : rows[view.current][current-column].text));
                 }
@@ -869,9 +1128,10 @@ export component AccessTable inherits Rectangle {
 
                 HorizontalLayout {
                     for col[c] in columns : cell := Rectangle {
-                        min-width: col.width >= 1px ? col.width : max(col.min-width, 32px);
-                        max-width: col.width >= 1px ? col.width : 100000px;
-                        horizontal-stretch: col.width >= 1px ? 0 : max(col.horizontal-stretch, 0.0001);
+                        visible: col.width >= 0;
+                        min-width: col.width < 0 ? 0 : col.width >= 1px ? col.width : max(col.min-width, 32px);
+                        max-width: col.width < 0 ? 0 : col.width >= 1px ? col.width : 100000px;
+                        horizontal-stretch: col.width < 0 ? 0 : col.width >= 1px ? 0 : max(col.horizontal-stretch, 0.0001);
 
                         // Cut-off text gets a tooltip with all of it, with
                         // the mouse (after a moment) and with the keyboard
@@ -1086,6 +1346,21 @@ export component AccessTable inherits Rectangle {
             accessible-role: none;
         }
     }
+    // The column menu, on top of the table.
+    property <int> menu-col: 0;
+    column-menu := ColumnMenu {
+        width: root.width;
+        height: root.height;
+        columns: root.columns;
+        column: menu-col;
+        sortable: true;
+        can-add-sort: header.sort-column >= 0 && header.level-of(menu-col) == 0;
+        can-hide: header.shown-count > 1;
+        label: menu-col < columns.length ? columns[menu-col].title + ", " + AccessTableTexts.column-menu : "";
+        activated(i) => { header.menu-action(menu-col, i); }
+        closed => { header.focus-header(); }
+    }
+
     // Leaving the tooltip with the mouse closes it (unless the keyboard
     // brought it up).
     property <bool> on-tip: tip-area.has-hover;

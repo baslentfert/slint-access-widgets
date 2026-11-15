@@ -1,0 +1,232 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// A menu that screen readers can follow. (Slint 1.18's own context menu
+// shows its items to assistive technology as plain labels without focus.)
+// Up/Down/Home/End move, Enter or Space chooses, Escape or Tab closes, a
+// letter jumps to the next item starting with it. Every item has focus of
+// its own, so a screen reader reads it with its state: "Owner, checked",
+// "Move left, unavailable". Place it on top of your window or component and
+// call `open(x, y)`; when it closes, give the focus back (`closed`).
+
+import { Palette } from "std-widgets.slint";
+import { AccessFocus } from "focus.slint";
+
+export struct AccessMenuItem {
+    title: string,
+    enabled: bool,
+    // A tick in front (and "checked" / "not checked" for screen readers).
+    checkable: bool,
+    checked: bool,
+    // A line above this item.
+    separator: bool,
+}
+
+// One item (used by `AccessMenu`, and by menus with items of their own,
+// like the column menu of `AccessTable`).
+export component AccessMenuEntry inherits Rectangle {
+    in property <AccessMenuItem> item;
+    in property <int> index;
+    in property <int> count;
+    in property <bool> current;
+    in property <int> focus-tick;
+    callback chosen();
+    callback move(int);
+    callback jump(string);
+    callback close();
+    callback hovered();
+
+    height: max(28px, t.preferred-height + 10px);
+    background: current ? Palette.selection-background : transparent;
+
+    accessible-role: list-item;
+    accessible-label: item.title;
+    accessible-enabled: item.enabled;
+    accessible-checkable: item.checkable;
+    accessible-checked: item.checked;
+    accessible-item-index: index;
+    accessible-item-count: count;
+    accessible-item-selectable: true;
+    accessible-item-selected: current;
+    accessible-action-default => { if (item.enabled) { chosen(); } }
+
+    changed focus-tick => { if (current) { fs.focus(); } }
+    changed current => { if (current) { fs.focus(); } }
+    init => { if (current) { fs.focus(); } }
+
+    TouchArea {
+        enabled: item.enabled;
+        moved => { hovered(); }
+        clicked => { chosen(); }
+    }
+    fs := FocusScope {
+        focus-on-click: false;
+        // A menu is no Tab stop: it opens with the Menu key and gets the
+        // focus itself; Tab closes it.
+        focus-on-tab-navigation: false;
+        capture-key-pressed(e) => {
+            AccessFocus.keyboard = true;
+            reject
+        }
+        key-pressed(e) => {
+            if (e.text == Key.DownArrow) { move(1); return accept; }
+            if (e.text == Key.UpArrow) { move(-1); return accept; }
+            if (e.text == Key.Home) { move(-1000); return accept; }
+            if (e.text == Key.End) { move(1000); return accept; }
+            if (e.text == Key.Return || e.text == " ") {
+                if (item.enabled) { chosen(); }
+                return accept;
+            }
+            if (e.text == Key.Escape || e.text == Key.Tab || e.text == Key.Backtab) { close(); return accept; }
+            if (e.text.character-count == 1 && e.text.to-uppercase() != e.text.to-lowercase()) {
+                jump(e.text.to-lowercase());
+                return accept;
+            }
+            reject
+        }
+    }
+    Rectangle {
+        visible: item.separator;
+        y: 0;
+        height: 1px;
+        background: Palette.border;
+    }
+    HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 12px;
+        spacing: 6px;
+        Text {
+            width: 16px;
+            text: item.checkable && item.checked ? "✓" : "";
+            color: current ? Palette.selection-foreground : Palette.foreground;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+        t := Text {
+            text: item.title;
+            // Unavailable: a lighter colour and "unavailable" for screen
+            // readers (inactive controls are exempt from contrast rules).
+            color: current ? Palette.selection-foreground : Palette.foreground;
+            opacity: item.enabled ? 1 : 0.5;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+}
+
+export component AccessMenu inherits Rectangle {
+    // What a screen reader calls the menu, e.g. "Size, column menu".
+    in property <string> label;
+    in property <[AccessMenuItem]> items;
+    // The item chosen (index in `items`); the menu closes itself first.
+    callback activated(int);
+    // Closed by choosing, Escape, Tab or a click elsewhere: give the focus
+    // back to where it came from.
+    callback closed();
+    out property <bool> is-open: shown;
+
+    property <bool> shown: false;
+    property <int> current: 0;
+    property <int> focus-tick;
+    property <length> at-x;
+    property <length> at-y;
+
+    public function open(x: length, y: length) {
+        at-x = x;
+        at-y = y;
+        current = first-enabled(0, 1);
+        shown = true;
+        focus-tick += 1;
+    }
+    public function close() {
+        if (!shown) { return; }
+        shown = false;
+        closed();
+    }
+
+    pure function ok(i: int) -> bool { i >= 0 && i < items.length && items[i].enabled }
+    // The first enabled item from `i` in direction `d` (looks up to 8 on).
+    pure function first-enabled(i: int, d: int) -> int {
+        ok(i) ? i : ok(i + d) ? i + d : ok(i + 2 * d) ? i + 2 * d : ok(i + 3 * d) ? i + 3 * d
+            : ok(i + 4 * d) ? i + 4 * d : ok(i + 5 * d) ? i + 5 * d : ok(i + 6 * d) ? i + 6 * d
+            : ok(i + 7 * d) ? i + 7 * d : ok(i + 8 * d) ? i + 8 * d : current
+    }
+    function move(d: int) {
+        if (d <= -1000) { current = first-enabled(0, 1); }
+        else if (d >= 1000) { current = first-enabled(items.length - 1, -1); }
+        else {
+            let next = first-enabled(current + d, d);
+            // Wrap round at the ends, as menus do.
+            current = next != current ? next : d > 0 ? first-enabled(0, 1) : first-enabled(items.length - 1, -1);
+        }
+        focus-tick += 1;
+    }
+    pure function starts(i: int, letter: string) -> bool {
+        ok(i) && items[i].title.to-lowercase().starts-with(letter)
+    }
+    function jump(letter: string) {
+        // The next item after the current one starting with the letter.
+        let n = items.length;
+        let found = starts(mod(current + 1, n), letter) ? mod(current + 1, n)
+            : starts(mod(current + 2, n), letter) ? mod(current + 2, n)
+            : starts(mod(current + 3, n), letter) ? mod(current + 3, n)
+            : starts(mod(current + 4, n), letter) ? mod(current + 4, n)
+            : starts(mod(current + 5, n), letter) ? mod(current + 5, n)
+            : starts(mod(current + 6, n), letter) ? mod(current + 6, n)
+            : starts(mod(current + 7, n), letter) ? mod(current + 7, n)
+            : starts(mod(current + 8, n), letter) ? mod(current + 8, n)
+            : starts(mod(current + 9, n), letter) ? mod(current + 9, n)
+            : starts(mod(current + 10, n), letter) ? mod(current + 10, n)
+            : starts(mod(current + 11, n), letter) ? mod(current + 11, n)
+            : starts(mod(current + 12, n), letter) ? mod(current + 12, n) : current;
+        current = found;
+        focus-tick += 1;
+    }
+
+    visible: shown;
+    // A click anywhere else in this area closes the menu.
+    TouchArea {
+        enabled: shown;
+        clicked => { close(); }
+    }
+
+    box := Rectangle {
+        x: max(0, min(at-x, root.width - self.width - 2px));
+        y: at-y + self.height > root.height ? max(0, at-y - self.height) : at-y;
+        width: max(200px, list.preferred-width);
+        height: list.preferred-height;
+        background: Palette.background;
+        border-width: 1px;
+        border-color: Palette.border;
+        border-radius: 4px;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: #0005;
+
+        accessible-role: AccessibleRole.list;
+        accessible-label: label;
+        accessible-item-count: items.length;
+
+        list := VerticalLayout {
+            padding: 4px;
+            for item[i] in items : AccessMenuEntry {
+                item: item;
+                index: i;
+                count: items.length;
+                current: i == current;
+                focus-tick: focus-tick;
+                chosen => {
+                    close();
+                    activated(i);
+                }
+                move(d) => { root.move(d); }
+                jump(l) => { root.jump(l); }
+                close => { root.close(); }
+                hovered => {
+                    if (item.enabled) {
+                        current = i;
+                        focus-tick += 1;
+                    }
+                }
+            }
+        }
+    }
+}

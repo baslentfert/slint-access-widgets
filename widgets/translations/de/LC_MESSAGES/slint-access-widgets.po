@@ -6,64 +6,124 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: po-bundle\n"
 
-#: ui/table.slint:61
+#: ui/table.slint:62
 msgctxt "access-widgets"
 msgid "sorted ascending"
 msgstr "aufsteigend sortiert"
 
-#: ui/table.slint:62
+#: ui/table.slint:63
 msgctxt "access-widgets"
 msgid "sorted descending"
 msgstr "absteigend sortiert"
 
-#: ui/table.slint:63
+#: ui/table.slint:64
 msgctxt "access-widgets"
 msgid "column header"
 msgstr "Spaltenkopf"
 
-#: ui/table.slint:64
+#: ui/table.slint:65
 msgctxt "access-widgets"
 msgid "items"
 msgstr "Einträge"
 
-#: ui/table.slint:65
+#: ui/table.slint:66
 msgctxt "access-widgets"
 msgid "Column headers"
 msgstr "Spaltenköpfe"
 
-#: ui/table.slint:66
+#: ui/table.slint:67
 msgctxt "access-widgets"
 msgid "No items"
 msgstr "Keine Einträge"
 
-#: ui/table.slint:67
+#: ui/table.slint:68
 msgctxt "access-widgets"
 msgid "Loading…"
 msgstr "Wird geladen…"
 
-#: ui/table.slint:69
+#: ui/table.slint:70
 msgctxt "access-widgets"
 msgid "{} selected"
 msgstr "{} ausgewählt"
 
-#: ui/table.slint:72
+#: ui/table.slint:73
+msgctxt "access-widgets"
+msgid "column {} of {}"
+msgstr "Spalte {} von {}"
+
+#: ui/table.slint:76
 msgctxt "access-widgets"
 msgid "level {}"
 msgstr "Ebene {}"
 
-#: ui/table.slint:74
+#: ui/table.slint:78
 msgctxt "access-widgets"
 msgid "then"
 msgstr "dann"
 
-#: ui/table.slint:76
+#: ui/table.slint:80
+msgctxt "access-widgets"
+msgid "Sort ascending"
+msgstr "Aufsteigend sortieren"
+
+#: ui/table.slint:81
+msgctxt "access-widgets"
+msgid "Sort descending"
+msgstr "Absteigend sortieren"
+
+#: ui/table.slint:82
+msgctxt "access-widgets"
+msgid "Add to sort"
+msgstr "Zur Sortierung hinzufügen"
+
+#: ui/table.slint:83
+msgctxt "access-widgets"
+msgid "Size to fit"
+msgstr "Optimale Breite"
+
+#: ui/table.slint:84
+msgctxt "access-widgets"
+msgid "Hide column"
+msgstr "Spalte ausblenden"
+
+#: ui/table.slint:85
+msgctxt "access-widgets"
+msgid "Columns"
+msgstr "Spalten"
+
+#: ui/table.slint:86
+msgctxt "access-widgets"
+msgid "Move left"
+msgstr "Nach links"
+
+#: ui/table.slint:87
+msgctxt "access-widgets"
+msgid "Move right"
+msgstr "Nach rechts"
+
+#: ui/table.slint:88
+msgctxt "access-widgets"
+msgid "column menu"
+msgstr "Spaltenmenü"
+
+#: ui/table.slint:89
+msgctxt "access-widgets"
+msgid "hidden"
+msgstr "ausgeblendet"
+
+#: ui/table.slint:90
+msgctxt "access-widgets"
+msgid "shown"
+msgstr "eingeblendet"
+
+#: ui/table.slint:92
 msgctxt "access-widgets"
 msgid "{n} row copied"
 msgid_plural "{n} rows copied"
 msgstr[0] "{n} Zeile kopiert"
 msgstr[1] "{n} Zeilen kopiert"
 
-#: ui/table.slint:79
+#: ui/table.slint:95
 msgctxt "access-widgets"
 msgid "{} of {} shown"
 msgstr "{} von {} angezeigt"

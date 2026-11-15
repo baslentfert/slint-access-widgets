@@ -120,6 +120,24 @@ SCENARIOS = {
         # First rows: the first type (Application), biggest first.
         ("Home", 'Type Application', None),
         ("Down", 'Type Application', None),
+        # The column menu: a list a screen reader follows, item by item.
+        ("shift+Tab", "button", None),
+        ("Home", 'button "Name', None),
+        ("Right", 'button "Size', None),
+        ("Menu", 'list item "Sort ascending" #1', None),
+        ("Down", 'list item "Sort descending" #2', None),
+        ("End", 'list item "Owner" #13', None),
+        ("Return", 'button "Size', "Owner, hidden"),
+        ("Menu", 'list item "Sort ascending"', None),
+        ("End", 'list item "Owner" #13', None),
+        ("Return", 'button "Size', "Owner, shown"),
+        # The same without the menu: Delete hides, Ctrl+Shift+arrows move.
+        ("Delete", 'button "Modified', "Size, hidden"),
+        ("Left", 'button "Name', None),
+        ("Menu", "list item", None),
+        ("Escape", 'button "Name', None),
+        ("ctrl+shift+Right", 'button "Name', "Name, column 2 of 6"),
+        ("ctrl+shift+Left", 'button "Name', "Name, column 1 of 6"),
     ],
     "transfer": [
         ("Tab", 'list item "holiday-00.mp4, 6 MB" #1', None),

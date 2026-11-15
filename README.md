@@ -38,6 +38,12 @@ A drop-in for `StandardTableView` (same `columns` and `rows`):
 - **Columns:** drag the edge or Ctrl+Left/Right to resize; double click
   the edge or Ctrl and + to fit the contents. When they don't fit, the
   table **scrolls sideways** and the **first column stays in place**.
+- **A column menu** (right click, Menu key or Shift+F10 on a header): sort,
+  add to sort, size to fit, hide, move left/right, and every column with a
+  tick to show or hide it. Each action also has a key on the header
+  (Delete hides, Ctrl+Shift+Left/Right moves), and every change is
+  announced ("Size, hidden", "Name, column 2 of 6"). Your app moves the
+  data (`move-column`).
 - **Several rows at once**, as in File Explorer: Shift extends, Ctrl moves
   only the focus, Space or Ctrl+click adds or removes, Ctrl+A selects all;
   "3 selected" is announced. `Selection` (Rust) keeps the **same items
@@ -57,6 +63,14 @@ For anything else in a row (check boxes, progress bars, …) use the building
 blocks `AccessTableView`, `AccessRow` and `AccessTableHeader`, with cells
 that never take focus (`AccessCheckCell`, `AccessProgressCell`,
 `AccessTextCell`); see `examples/transfer`.
+
+## AccessMenu
+
+A menu that screen readers can follow (Slint 1.18's own context menu shows
+its items to assistive technology as plain labels, without focus): every
+item has focus of its own and reads with its state ("Owner, checked",
+"Add to sort, unavailable"). Up/Down/Home/End, a letter to jump, Enter or
+Space to choose, Escape or Tab to close.
 
 ## AccessFilter
 
@@ -112,7 +126,7 @@ scripts/headless.sh python3 -I scripts/a11y-test.py
 Table semantics (rows, cells, column headers) for screen readers need Slint
 and AccessKit ([slint#14965](https://github.com/slint-ui/slint/issues/14965));
 until then rows are read as list items with their column titles. Still to
-come: a menu on headers and rows, tree rows and groups, a card layout for
+come: a menu on rows, tree rows and groups, a card layout for
 narrow windows, editable cells, rows of different heights, drag and drop,
 right-to-left.
 
