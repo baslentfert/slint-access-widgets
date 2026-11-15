@@ -136,6 +136,90 @@ impl Selection {
     }
 }
 
+/// Lazy loading for `AccessTable`: rows come in blocks, from a server or
+/// another computer, only when they are (nearly) on screen.
+///
+/// The model always has all rows (so the table knows the total, End works
+/// and a screen reader hears "row 400 of 100,000"); a row not loaded yet is
+/// an empty array, which the table shows and reads as "Loading…".
+///
+/// ```ignore
+/// let lazy = Rc::new(LazyRows::new(100_000, 100));
+/// window.set_files(lazy.model());
+/// let l = lazy.clone();
+/// window.on_rows_needed(move |first, count| {
+///     for block in l.needed(first, count) {
+///         // fetch `block` (a range of row numbers), later: l.fill(block.start, rows)
+///     }
+/// });
+/// ```
+pub struct LazyRows {
+    model: Rc<VecModel<ModelRc<StandardListViewItem>>>,
+    block: usize,
+    /// Blocks asked for (or loaded).
+    asked: std::cell::RefCell<std::collections::HashSet<usize>>,
+}
+
+impl LazyRows {
+    /// `total` rows, fetched `block` rows at a time.
+    pub fn new(total: usize, block: usize) -> Self {
+        let s = Self { model: Rc::new(VecModel::default()), block: block.max(1), asked: Default::default() };
+        s.reset(total);
+        s
+    }
+
+    /// For `rows`.
+    pub fn model(&self) -> ModelRc<ModelRc<StandardListViewItem>> {
+        self.model.clone().into()
+    }
+
+    /// Start over with `total` rows, none loaded (a new search, another sort
+    /// order, another folder).
+    pub fn reset(&self, total: usize) {
+        self.model.set_vec(vec![ModelRc::default(); total]);
+        self.asked.borrow_mut().clear();
+    }
+
+    /// The blocks to fetch for rows `first .. first + count` (from
+    /// `rows-needed`), plus one block before and after so scrolling seldom
+    /// shows "Loading…". Each block is handed out once.
+    pub fn needed(&self, first: i32, count: i32) -> Vec<std::ops::Range<usize>> {
+        let total = self.model.row_count();
+        if total == 0 || count <= 0 {
+            return Vec::new();
+        }
+        let first = first.max(0) as usize;
+        let last = (first + count as usize).min(total);
+        let from = (first / self.block).saturating_sub(1);
+        let to = ((last.saturating_sub(1)) / self.block + 1).min(total.div_ceil(self.block) - 1);
+        let mut asked = self.asked.borrow_mut();
+        (from..=to)
+            .filter(|b| asked.insert(*b))
+            .map(|b| b * self.block..((b + 1) * self.block).min(total))
+            .collect()
+    }
+
+    /// Rows arrived, starting at row `start`: one `Vec` of cell texts each.
+    pub fn fill<S: Into<slint::SharedString>>(&self, start: usize, rows: impl IntoIterator<Item = Vec<S>>) {
+        for (i, cells) in rows.into_iter().enumerate() {
+            let row = start + i;
+            if row >= self.model.row_count() {
+                break;
+            }
+            let cells: Vec<StandardListViewItem> = cells.into_iter().map(|t| StandardListViewItem::from(t.into())).collect();
+            self.model.set_row_data(row, ModelRc::from(Rc::new(VecModel::from(cells))));
+        }
+    }
+
+    /// Fetching a block failed: ask again next time it is needed.
+    pub fn forget(&self, rows: std::ops::Range<usize>) {
+        let mut asked = self.asked.borrow_mut();
+        for b in rows.start / self.block..=rows.end.saturating_sub(1) / self.block {
+            asked.remove(&b);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,6 +233,25 @@ mod tests {
         assert_eq!(find_prefix_by(4, "bl", 0, t), 3);
         assert_eq!(find_prefix_by(4, "x", 0, t), 0);
         assert_eq!(find_prefix_by(4, "", 0, t), 0);
+    }
+
+    #[test]
+    fn lazy_rows_hand_out_each_block_once() {
+        let l = LazyRows::new(1000, 100);
+        // Rows 250..270 on screen: blocks 1, 2 (around it) and 3.
+        assert_eq!(l.needed(250, 20), vec![100..200, 200..300, 300..400]);
+        assert!(l.needed(260, 20).is_empty());
+        // At the end: no block past the last row.
+        assert_eq!(l.needed(990, 10), vec![800..900, 900..1000]);
+        l.fill(200, vec![vec!["a", "1"], vec!["b", "2"]]);
+        assert_eq!(l.model().row_data(201).unwrap().row_data(0).unwrap().text, "b");
+        assert_eq!(l.model().row_data(202).unwrap().row_count(), 0);
+        l.forget(300..400);
+        // Asked again, with the margin block after it (not asked before).
+        assert_eq!(l.needed(300, 10), vec![300..400, 400..500]);
+        l.reset(5);
+        assert_eq!(l.model().row_count(), 5);
+        assert_eq!(l.needed(0, 5), vec![0..5]);
     }
 
     #[test]

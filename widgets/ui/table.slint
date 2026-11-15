@@ -108,6 +108,17 @@ export component AccessTableView inherits ScrollView {
 
     callback current-changed(int);
 
+    // Lazy loading: the rows on screen (from `first`, `count` rows), so the
+    // app can fetch just those, e.g. from a server or another computer.
+    // Called when the view scrolls or resizes; may repeat a range, see
+    // `slint_access_widgets::LazyRows` to skip what is loaded already.
+    callback rows-needed(first: int, count: int);
+    property <int> needed-first: first;
+    property <int> needed-count: slots;
+    changed needed-first => { rows-needed(first, slots); }
+    changed needed-count => { rows-needed(first, slots); }
+    init => { rows-needed(first, slots); }
+
     // Type-ahead: return the first row at or after `from` whose text starts
     // with `prefix` (case-insensitive), as index + 1; 0 = none. Without a
     // handler, type-ahead does nothing. `slint_access_widgets::find_prefix`
@@ -554,6 +565,10 @@ export component AccessTable inherits Rectangle {
     // Type-ahead on the first column: wire it to
     // `slint_access_widgets::find_prefix` (see the crate docs).
     callback find(prefix: string, from: int) -> int;
+    // Lazy loading: these rows are on screen. A row that is not loaded yet
+    // is an empty array in `rows`: it shows and reads "Loading…". See
+    // `slint_access_widgets::LazyRows`.
+    callback rows-needed(first: int, count: int);
 
     public function focus-current() { view.focus-current(); }
     public function set-current-row(i: int) { view.go-to(i); }
@@ -594,13 +609,15 @@ export component AccessTable inherits Rectangle {
             density: root.density;
             current-changed(i) => { root.current-row-changed(i); }
             find(p, f) => { root.find(p, f) }
+            rows-needed(f, c) => { root.rows-needed(f, c); }
 
             for k in view.slots : r := AccessRow {
                 property <int> n: view.first + k;
                 property <[StandardListViewItem]> cells: rows[n];
+                property <bool> waiting: cells.length == 0;
                 state: view.state;
                 index: n;
-                label: row-label(cells);
+                label: waiting ? AccessTableTexts.loading : row-label(cells);
                 selected: multi-select ? (n < selected-rows.length && selected-rows[n]) : n == view.current;
                 navigate(i, m) => {
                     view.go-to(i);
@@ -623,7 +640,7 @@ export component AccessTable inherits Rectangle {
                 horizontal(d) => {
                     current-column = max(0, min(columns.length - 1, current-column + d));
                     // Read just that cell: "Size, 2 MB".
-                    announce(columns[current-column].title + ", " + rows[view.current][current-column].text);
+                    announce(columns[current-column].title + ", " + (waiting ? AccessTableTexts.loading : rows[view.current][current-column].text));
                 }
 
                 HorizontalLayout {
@@ -634,11 +651,21 @@ export component AccessTable inherits Rectangle {
                         Text {
                             x: 8px;
                             width: parent.width - 16px;
-                            text: c < cells.length ? cells[c].text : "";
+                            // Not loaded yet: "Loading…" in the first column,
+                            // a grey bar in the others (a skeleton).
+                            text: waiting ? (c == 0 ? AccessTableTexts.loading : "") : c < cells.length ? cells[c].text : "";
                             color: r.text-color;
                             vertical-alignment: center;
                             overflow: elide;
                             accessible-role: none;
+                        }
+                        Rectangle {
+                            visible: waiting && c > 0;
+                            x: 8px;
+                            width: min(80px, parent.width - 16px);
+                            height: 8px;
+                            border-radius: 4px;
+                            background: Palette.border;
                         }
                         // The cell chosen with Left/Right: an underline, so
                         // not by colour alone (WCAG 1.4.1).

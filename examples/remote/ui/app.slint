@@ -1,0 +1,39 @@
+// 100,000 files on a slow "server": only the rows on screen are fetched.
+// Rows still on their way show and read "Loading…". Search and sort happen
+// on the server; the table just gets the new total and the rows.
+
+import { AccessTable, AccessFilter } from "@access-widgets";
+import { VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Remote files";
+    preferred-width: 820px;
+    preferred-height: 520px;
+    in property <[[StandardListViewItem]]> files;
+    in property <int> total;
+    in-out property <[TableColumn]> columns: [
+        { title: "Name", horizontal-stretch: 3 },
+        { title: "Size", horizontal-stretch: 1 },
+        { title: "Modified", horizontal-stretch: 1 },
+    ];
+    callback rows-needed(int, int);
+    callback search(string);
+    callback sort(int, bool);
+
+    VerticalBox {
+        AccessFilter {
+            label: "Search on the server";
+            shown: files.length;
+            total: total;
+            edited(t) => { root.search(t); }
+        }
+        AccessTable {
+            label: "Files on the server";
+            columns <=> root.columns;
+            rows: files;
+            rows-needed(f, c) => { root.rows-needed(f, c); }
+            sort-ascending(i) => { root.sort(i, true); }
+            sort-descending(i) => { root.sort(i, false); }
+        }
+    }
+}

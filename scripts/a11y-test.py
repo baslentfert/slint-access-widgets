@@ -90,6 +90,25 @@ SCENARIOS = {
         ("shift+Tab", "list item", None),
         ("Up", "list item", None),
     ],
+    "remote": [
+        ("Tab", 'entry "Search on the server"', None),
+        ("Tab", 'button "Name" #1', None),
+        ("Tab", 'list item "report-000000.pdf, Size ', None),
+        # Far away: "Loading…" first, then it arrives (0.4 s) in place.
+        ("End", "list item", None),
+        ("wait", 'list item "song-099999.mp3, Size ', None),
+        ("Home", 'list item "report-000000.pdf', None),
+        # A search on the server: the new total is announced.
+        ("shift+Tab", "button", None),
+        ("shift+Tab", "entry", None),
+        ("9", "entry", None),
+        ("9", "entry", None),
+        ("9", "entry", None),
+        ("9", "entry", None),
+        ("wait", "entry", "of 100000 shown"),
+        ("Tab", "button", None),
+        ("Tab", 'list item "', None),
+    ],
 }
 
 
@@ -113,8 +132,11 @@ def run(name):
         pump(1.0)
         heard.clear()
         for key, want_focus, want_heard in SCENARIOS[name]:
-            subprocess.run(["xdotool", "key", "--clearmodifiers", key], check=True)
-            pump(0.5)
+            if key == "wait":
+                pump(1.0)
+            else:
+                subprocess.run(["xdotool", "key", "--clearmodifiers", key], check=True)
+                pump(0.5)
             f = focused(app)
             got = describe(f) if f else "nothing"
             ok = want_focus in got and (want_heard is None or any(want_heard in h for h in heard))
