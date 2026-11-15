@@ -96,7 +96,7 @@ export component AccessTableView inherits ScrollView {
         current: current,
         count: count,
         row-height: row-height,
-        row-width: self.visible-width,
+        row-width: max(self.visible-width, content-min-width),
         page: max(1, floor(self.visible-height / row-height) - 1),
         active: active,
         current-visible: current >= first && current < first + slots,
@@ -108,6 +108,23 @@ export component AccessTableView inherits ScrollView {
     // Extra space at the top that is covered (a sticky header): a focused
     // row is never hidden under it (WCAG 2.4.11).
     in property <length> covered-top: 0;
+    // Rows are at least this wide; when the view is narrower, it scrolls
+    // sideways (`AccessTableHeader.needed-width`).
+    in property <length> content-min-width: 0;
+    // Width kept in place on the left while scrolling sideways (a frozen
+    // first column): cells are scrolled into view right of it.
+    in property <length> covered-left: 0;
+
+    // Bring the stretch `x .. x + w` of a row into view sideways.
+    public function reveal-x(x: length, w: length) {
+        if (x + self.content-x < covered-left && x > 0) {
+            self.content-x = min(0, -(x - covered-left));
+        }
+        if (x + w + self.content-x > self.visible-width) {
+            self.content-x = -(x + w - self.visible-width);
+        }
+        if (x == 0) { self.content-x = 0; }
+    }
 
     callback current-changed(int);
 
@@ -202,7 +219,7 @@ export component AccessTableView inherits ScrollView {
     accessible-label: label;
     accessible-description: count + " " + AccessTableTexts.items;
     content-height: count * row-height;
-    content-width: self.visible-width;
+    content-width: max(self.visible-width, content-min-width);
 
     measure := Text {
         text: "Mg";
@@ -454,6 +471,20 @@ export component AccessTableHeader inherits Rectangle {
     callback sort-ascending(int);
     callback sort-descending(int);
     out property <bool> has-keyboard-focus: fs.has-focus;
+    // The width all columns need at least (their minimum widths): when the
+    // table is narrower, it scrolls sideways.
+    out property <length> needed-width: widths.min-width;
+    // The width of the first column when the table scrolls sideways (all
+    // columns at their minimum then), for keeping it in place.
+    out property <length> first-width: columns.length == 0 ? 0 : columns[0].width >= 1px ? columns[0].width : max(columns[0].min-width, 32px);
+
+    // Measures `needed-width` (never shown).
+    widths := HorizontalLayout {
+        visible: false;
+        for col in columns : Rectangle {
+            min-width: col.width >= 1px ? col.width : max(col.min-width, 32px);
+        }
+    }
 
     // Keyboard resize goes through a tick: only the cell knows its width.
     property <int> resize-column: -1;
@@ -473,6 +504,12 @@ export component AccessTableHeader inherits Rectangle {
         text: "Mg";
         visible: false;
         accessible-role: none;
+    }
+
+    // Sort on column `i` (as a click on its header).
+    public function sort-by(i: int) {
+        current-column = i;
+        sort(i);
     }
 
     function sort(i: int) {
@@ -593,6 +630,10 @@ export component AccessTable inherits Rectangle {
     // rows were copied; it is announced. `slint_access_widgets::copy_rows`
     // does it (with the `clipboard` feature).
     callback copy(current-row: int) -> int;
+    // When the columns don't fit and the table scrolls sideways, the first
+    // column (usually the name) stays in place.
+    in property <bool> freeze-first-column: true;
+    property <bool> frozen: freeze-first-column && columns.length > 1;
 
     public function focus-current() { view.focus-current(); }
     public function set-current-row(i: int) { view.go-to(i); }
@@ -619,7 +660,13 @@ export component AccessTable inherits Rectangle {
     }
 
     VerticalLayout {
+      // The header scrolls sideways with the rows (and stays on top).
+      Rectangle {
+        clip: true;
+        height: header.height;
         header := AccessTableHeader {
+            x: view.content-x;
+            width: max(parent.width, self.needed-width);
             columns <=> root.columns;
             sort-ascending(i) => {
                 root.sort-ascending(i);
@@ -630,10 +677,39 @@ export component AccessTable inherits Rectangle {
                 announce(columns[i].title + ", " + AccessTableTexts.sorted-descending);
             }
         }
+        // The first column's header stays in place, like its cells.
+        Rectangle {
+            visible: frozen && view.content-x < 0;
+            x: 0;
+            width: header.first-width;
+            background: Palette.alternate-background;
+            Text {
+                x: 8px;
+                width: parent.width - 26px;
+                text: columns.length > 0 ? columns[0].title : "";
+                font-weight: 600;
+                color: Palette.foreground;
+                vertical-alignment: center;
+                overflow: elide;
+                accessible-role: none;
+            }
+            Text {
+                x: parent.width - 18px;
+                text: header.sort-column != 0 ? "" : columns[0].sort-order == SortOrder.ascending ? "▲" : columns[0].sort-order == SortOrder.descending ? "▼" : "";
+                color: Palette.foreground;
+                vertical-alignment: center;
+                accessible-role: none;
+            }
+            TouchArea { clicked => { header.sort-by(0); } }
+            Rectangle { x: parent.width - 1px; width: 1px; background: Palette.border; }
+        }
+      }
         view := AccessTableView {
             label: root.label;
             count: loading ? 0 : rows.length;
             density: root.density;
+            content-min-width: header.needed-width;
+            covered-left: frozen ? header.first-width : 0;
             current-changed(i) => { root.current-row-changed(i); }
             find(p, f) => { root.find(p, f) }
             rows-needed(f, c) => { root.rows-needed(f, c); }
@@ -690,6 +766,9 @@ export component AccessTable inherits Rectangle {
                         property <bool> by-key: c == current-column && n == view.current && view.active && AccessFocus.show;
                         property <bool> wants-tip: cut && !waiting && (by-mouse || by-key);
                         property <int> tip-id: n * 1000 + c;
+                        // The cell chosen with Left/Right scrolls into view
+                        // sideways.
+                        changed by-key => { if (by-key) { view.reveal-x(self.x, self.width); } }
                         changed wants-tip => {
                             if (wants-tip) {
                                 offer-tip(tip-id, t.text, self.absolute-position.x - root.absolute-position.x,
@@ -729,6 +808,30 @@ export component AccessTable inherits Rectangle {
                             background: r.text-color;
                         }
                     }
+                }
+
+                // The first cell again, kept in place while the row scrolls
+                // sideways (a frozen column). Always there, `visible` only:
+                // changing the elements under a focused row confuses screen
+                // readers.
+                Rectangle {
+                    visible: frozen && view.content-x < 0;
+                    x: -view.content-x;
+                    width: header.first-width;
+                    background: Palette.background;
+                    Rectangle {
+                        background: r.background;
+                        Text {
+                            x: 8px;
+                            width: parent.width - 16px;
+                            text: waiting ? AccessTableTexts.loading : cells.length > 0 ? cells[0].text : "";
+                            color: r.text-color;
+                            vertical-alignment: center;
+                            overflow: elide;
+                            accessible-role: none;
+                        }
+                    }
+                    Rectangle { x: parent.width - 1px; width: 1px; background: Palette.border; }
                 }
             }
         }

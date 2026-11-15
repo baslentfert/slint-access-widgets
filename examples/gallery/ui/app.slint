@@ -10,9 +10,12 @@ export component AppWindow inherits Window {
     in property <int> total;
     in property <bool> loading;
     in-out property <[TableColumn]> columns: [
-        { title: @tr("Name"), horizontal-stretch: 3 },
-        { title: @tr("Size"), horizontal-stretch: 1 },
-        { title: @tr("Modified"), horizontal-stretch: 1 },
+        { title: @tr("Name"), horizontal-stretch: 3, min-width: 200px },
+        { title: @tr("Size"), horizontal-stretch: 1, min-width: 80px },
+        { title: @tr("Modified"), horizontal-stretch: 1, min-width: 100px },
+        { title: @tr("Type"), horizontal-stretch: 1, min-width: 140px },
+        { title: @tr("Folder"), horizontal-stretch: 2, min-width: 200px },
+        { title: @tr("Owner"), horizontal-stretch: 1, min-width: 90px },
     ];
     in-out property <string> status;
     property <AccessDensity> density: density-box.current-index == 0 ? AccessDensity.compact : density-box.current-index == 2 ? AccessDensity.comfortable : AccessDensity.standard;

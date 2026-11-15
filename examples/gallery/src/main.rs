@@ -7,13 +7,34 @@ use slint::{ComponentHandle, Model, ModelRc, SharedString, StandardListViewItem,
 
 slint::include_modules!();
 
+/// The extra columns, made up from the name: type, folder, owner.
+fn extra(name: &str) -> [String; 3] {
+    let ext = name.rsplit('.').next().unwrap_or("");
+    let kind = match ext {
+        "pdf" => "PDF document",
+        "jpg" => "JPEG image",
+        "txt" => "Text file",
+        "zip" => "Compressed folder",
+        "exe" => "Application",
+        "xlsx" => "Spreadsheet",
+        "docx" => "Word document",
+        _ => "File",
+    };
+    let n: usize = name.bytes().map(usize::from).sum();
+    let folders = ["Documents/Projects/2026", "Pictures/Holiday", "Downloads", "Documents/Finance/Invoices", "Desktop"];
+    let owners = ["Ada", "Grace", "Alan", "Margaret", "Linus"];
+    [kind.to_string(), folders[n % folders.len()].to_string(), owners[n / 3 % owners.len()].to_string()]
+}
+
 fn row(name: &str, size: u64, modified: &str) -> ModelRc<StandardListViewItem> {
     let size = if size >= 1 << 20 { format!("{:.1} MB", size as f64 / (1 << 20) as f64) } else { format!("{} kB", size.div_ceil(1024)) };
-    ModelRc::from(Rc::new(VecModel::from(vec![
+    let mut cells = vec![
         StandardListViewItem::from(SharedString::from(name)),
         StandardListViewItem::from(SharedString::from(size)),
         StandardListViewItem::from(SharedString::from(modified)),
-    ])))
+    ];
+    cells.extend(extra(name).into_iter().map(|t| StandardListViewItem::from(SharedString::from(t))));
+    ModelRc::from(Rc::new(VecModel::from(cells)))
 }
 
 fn main() {
@@ -99,6 +120,7 @@ fn main() {
             match col {
                 1 => d.sort_by_key(|r| r.1),
                 2 => d.sort_by(|a, b| a.2.cmp(&b.2)),
+                3..=5 => d.sort_by_cached_key(|r| extra(&r.0)[col as usize - 3].clone()),
                 _ => d.sort_by_key(|r| r.0.to_lowercase()),
             }
             if !asc {
