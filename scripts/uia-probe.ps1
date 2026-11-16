@@ -21,6 +21,8 @@ function Line($e, $level) {
     try { $s = $e.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern); $extra += " selected=" + $s.Current.IsSelected } catch {}
     try { $t = $e.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern); $extra += " toggle=" + $t.Current.ToggleState } catch {}
     try { $v = $e.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern); $extra += " value='" + $v.Current.Value + "'" } catch {}
+    try { $x = $e.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern); $extra += " expand=" + $x.Current.ExpandCollapseState } catch {}
+    if ($c.HelpText) { $extra += " help='" + $c.HelpText.Substring(0, [Math]::Min(30, $c.HelpText.Length)) + "'" }
     if (-not $c.IsEnabled) { $extra += " disabled" }
     if ($c.ClassName) { $extra += " class=" + $c.ClassName }
     ("  " * $level) + "$kind `"$($c.Name)`"$extra"
