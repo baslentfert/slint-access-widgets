@@ -1038,6 +1038,8 @@ export component AccessTable inherits Rectangle {
                 menu-col = c;
                 if (native-menus) {
                     native-column-menu.show({ x: x + view.content-x, y: header.height });
+                    native-menu-from = 1;
+                    native-menu-watch.start();
                 } else {
                     column-menu.open(x + view.content-x, header.height);
                 }
@@ -1140,6 +1142,8 @@ export component AccessTable inherits Rectangle {
                         // Under the row (or at the mouse), in table coordinates.
                         if (native-menus) {
                             native-row-menu.show({ x: x + 8px, y: header.height + i * view.state.row-height + view.content-y + y });
+                            native-menu-from = 2;
+                            native-menu-watch.start();
                         } else {
                             row-menu-box.open(x + 8px, header.height + i * view.state.row-height + view.content-y + y);
                         }
@@ -1422,6 +1426,22 @@ export component AccessTable inherits Rectangle {
                     activated => { root.row-menu-activated(menu-row, i); }
                 }
             }
+        }
+    }
+
+    // After a system menu closes, Slint (1.18, Windows) loses its place in
+    // the Tab order: Tab from the header went back to the controls before
+    // it. Giving the focus back explicitly puts it right. A system menu
+    // holds the app while it is open, so this fires once it has closed.
+    property <int> native-menu-from: 0;
+    native-menu-watch := Timer {
+        interval: 1ms;
+        running: false;
+        triggered => {
+            self.stop();
+            if (native-menu-from == 1) { header.focus-header(); }
+            if (native-menu-from == 2) { view.focus-current(); }
+            native-menu-from = 0;
         }
     }
 

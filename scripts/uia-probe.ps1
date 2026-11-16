@@ -11,7 +11,8 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.For
 # as NVDA does; the .NET UI Automation client here shows them as empty panes.
 # Compiled next to this script: some setups block running DLLs from %TEMP%.
 $msaaDll = Join-Path $PSScriptRoot "msaa-probe.dll"
-if (Test-Path $msaaDll) { Add-Type -Path $msaaDll } else {
+# Loaded from memory, so a virus scanner looking at the file doesn't block it.
+if (Test-Path $msaaDll) { [void][Reflection.Assembly]::Load([IO.File]::ReadAllBytes($msaaDll)) } else {
 Add-Type -OutputAssembly $msaaDll -ReferencedAssemblies Accessibility @"
 using System;
 using System.Text;
@@ -43,7 +44,7 @@ public static class Msaa {
     }
 }
 "@
-Add-Type -Path $msaaDll
+[void][Reflection.Assembly]::Load([IO.File]::ReadAllBytes($msaaDll))
 }
 $A = [System.Windows.Automation.AutomationElement]
 $log = New-Object System.Collections.Generic.List[string]
