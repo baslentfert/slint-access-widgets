@@ -1,0 +1,154 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// A tree (folders, groups), as in the WAI-ARIA Authoring Practices: one Tab
+// stop; Up/Down/Home/End over the visible rows; Right opens a closed node
+// or goes to its first child; Left closes an open node or goes to its
+// parent; Enter activates; letters jump. Built on the table's building
+// blocks: only the rows on screen exist, and every row takes the focus
+// itself.
+//
+// The rows are the visible nodes, flattened; `slint_access_widgets::TreeRows`
+// (Rust) keeps them: it opens and closes nodes, loads children when a node
+// is first opened (so they can come from another computer), and answers
+// `parent-of`.
+
+import { Palette } from "std-widgets.slint";
+import { AccessTableView, AccessRow } from "table.slint";
+import { AccessAnnouncer } from "cells.slint";
+import { AccessFocus } from "focus.slint";
+
+export struct AccessTreeRow {
+    text: string,
+    // 1 for the top level.
+    level: int,
+    has-children: bool,
+    expanded: bool,
+}
+
+export global AccessTreeTexts {
+    pure public function level(n: int) -> string {
+        @tr("access-widgets" => "level {}", n)
+    }
+    in-out property <string> expanded: @tr("access-widgets" => "expanded");
+    in-out property <string> collapsed: @tr("access-widgets" => "collapsed");
+    in-out property <string> empty: @tr("access-widgets" => "Empty");
+    pure public function expanded-count(n: int) -> string {
+        @tr("access-widgets" => "expanded, {n} item" | "expanded, {n} items" % n)
+    }
+}
+
+export component AccessTree inherits Rectangle {
+    // What a screen reader calls the tree, e.g. "Folders".
+    in property <string> label;
+    in property <[AccessTreeRow]> rows;
+    in-out property <int> current-row <=> view.current;
+    // Open or close the node in this row (`TreeRows::expand`/`collapse`);
+    // return how many rows it has under it now (for the announcement).
+    callback expand(row: int) -> int;
+    callback collapse(row: int);
+    // The row of the parent of this row, -1 at the top level.
+    callback parent-of(row: int) -> int;
+    // Enter or double click.
+    callback activated(row: int);
+    // Type-ahead: as `AccessTable.find`.
+    callback find(prefix: string, from: int) -> int;
+
+    public function focus-current() { view.focus-current(); }
+
+    // "expanded" doesn't reach AT-SPI yet (AccessKit #824): on Linux we say
+    // it in the description and announce it.
+    property <bool> zeg-het: Platform.os != OperatingSystemType.windows && Platform.os != OperatingSystemType.macos;
+
+    function open(i: int) {
+        if (i < 0 || i >= rows.length || !rows[i].has-children || rows[i].expanded) { return; }
+        let n = expand(i);
+        // Empty after all: say so everywhere (it doesn't open).
+        if (n == 0) { news.say(AccessTreeTexts.empty); }
+        else if (zeg-het) { news.say(AccessTreeTexts.expanded-count(n)); }
+    }
+    function shut(i: int) {
+        if (i < 0 || i >= rows.length || !rows[i].expanded) { return; }
+        collapse(i);
+        if (zeg-het) { news.say(AccessTreeTexts.collapsed); }
+    }
+    function toggle(i: int) {
+        if (rows[i].expanded) { shut(i); } else { open(i); }
+    }
+
+    background: Palette.background;
+    border-width: 1px;
+    border-color: Palette.border;
+    min-height: 120px;
+    // Fill the space it gets, as a table does.
+    vertical-stretch: 1;
+    horizontal-stretch: 1;
+
+    view := AccessTableView {
+        label: root.label;
+        count: rows.length;
+        find(p, f) => { root.find(p, f) }
+
+        for k in view.slots : r := AccessRow {
+            property <int> n: view.first + k;
+            property <AccessTreeRow> node: rows[n];
+            state: view.state;
+            index: n;
+            label: node.text;
+            expandable: node.has-children;
+            expanded: node.expanded;
+            description: AccessTreeTexts.level(node.level)
+                + (zeg-het && node.has-children ? ", " + (node.expanded ? AccessTreeTexts.expanded : AccessTreeTexts.collapsed) : "");
+            navigate(i, m) => { view.go-to(i); }
+            focus-changed(f) => { view.active = f; }
+            typed(t) => { view.type-ahead(t); }
+            activated(i) => { root.activated(i); }
+            toggled(i) => { toggle(i); }
+            horizontal(d) => {
+                if (d > 0) {
+                    // Right: open, or into the first child.
+                    if (node.has-children && !node.expanded) { open(n); }
+                    else if (node.expanded && n + 1 < rows.length) { view.go-to(n + 1); }
+                } else {
+                    // Left: close, or up to the parent.
+                    if (node.expanded) { shut(n); }
+                    else {
+                        let p = parent-of(n);
+                        if (p >= 0) { view.go-to(p); }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                padding-left: 6px + (node.level - 1) * 20px;
+                spacing: 4px;
+                // The triangle: click to open or close.
+                Rectangle {
+                    width: 20px;
+                    Text {
+                        text: !node.has-children ? "" : node.expanded ? "▾" : "▸";
+                        color: r.text-color;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        accessible-role: none;
+                    }
+                    TouchArea {
+                        enabled: node.has-children;
+                        clicked => {
+                            AccessFocus.keyboard = false;
+                            view.go-to(n);
+                            toggle(n);
+                        }
+                    }
+                }
+                Text {
+                    text: node.text;
+                    color: r.text-color;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    accessible-role: none;
+                }
+            }
+        }
+    }
+    news := AccessAnnouncer { }
+}

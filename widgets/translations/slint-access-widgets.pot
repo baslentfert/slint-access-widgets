@@ -26,7 +26,7 @@ msgid_plural "{n} suggestions"
 msgstr[0] ""
 msgstr[1] ""
 
-#: ui/info.slint:16
+#: ui/info.slint:26
 msgctxt "access-widgets"
 msgid "More about {}"
 msgstr ""
@@ -76,7 +76,7 @@ msgctxt "access-widgets"
 msgid "column {} of {}"
 msgstr ""
 
-#: ui/table.slint:76
+#: ui/table.slint:76 ui/tree.slint:30
 msgctxt "access-widgets"
 msgid "level {}"
 msgstr ""
@@ -157,3 +157,25 @@ msgstr[1] ""
 msgctxt "access-widgets"
 msgid "{} of {} shown"
 msgstr ""
+
+#: ui/tree.slint:32
+msgctxt "access-widgets"
+msgid "expanded"
+msgstr ""
+
+#: ui/tree.slint:33
+msgctxt "access-widgets"
+msgid "collapsed"
+msgstr ""
+
+#: ui/tree.slint:34
+msgctxt "access-widgets"
+msgid "Empty"
+msgstr ""
+
+#: ui/tree.slint:36
+msgctxt "access-widgets"
+msgid "expanded, {n} item"
+msgid_plural "expanded, {n} items"
+msgstr[0] ""
+msgstr[1] ""

@@ -28,7 +28,7 @@ msgid_plural "{n} suggestions"
 msgstr[0] "{n} Vorschlag"
 msgstr[1] "{n} Vorschläge"
 
-#: ui/info.slint:16
+#: ui/info.slint:26
 msgctxt "access-widgets"
 msgid "More about {}"
 msgstr "Mehr zu {}"
@@ -78,7 +78,7 @@ msgctxt "access-widgets"
 msgid "column {} of {}"
 msgstr "Spalte {} von {}"
 
-#: ui/table.slint:76
+#: ui/table.slint:76 ui/tree.slint:30
 msgctxt "access-widgets"
 msgid "level {}"
 msgstr "Ebene {}"
@@ -159,3 +159,25 @@ msgstr[1] "{n} Zeilen kopiert"
 msgctxt "access-widgets"
 msgid "{} of {} shown"
 msgstr "{} von {} angezeigt"
+
+#: ui/tree.slint:32
+msgctxt "access-widgets"
+msgid "expanded"
+msgstr "erweitert"
+
+#: ui/tree.slint:33
+msgctxt "access-widgets"
+msgid "collapsed"
+msgstr "reduziert"
+
+#: ui/tree.slint:34
+msgctxt "access-widgets"
+msgid "Empty"
+msgstr "Leer"
+
+#: ui/tree.slint:36
+msgctxt "access-widgets"
+msgid "expanded, {n} item"
+msgid_plural "expanded, {n} items"
+msgstr[0] "erweitert, {n} Eintrag"
+msgstr[1] "erweitert, {n} Einträge"

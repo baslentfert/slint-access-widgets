@@ -28,7 +28,7 @@ msgid_plural "{n} suggestions"
 msgstr[0] "{n} suggestie"
 msgstr[1] "{n} suggesties"
 
-#: ui/info.slint:16
+#: ui/info.slint:26
 msgctxt "access-widgets"
 msgid "More about {}"
 msgstr "Meer over {}"
@@ -78,7 +78,7 @@ msgctxt "access-widgets"
 msgid "column {} of {}"
 msgstr "kolom {} van {}"
 
-#: ui/table.slint:76
+#: ui/table.slint:76 ui/tree.slint:30
 msgctxt "access-widgets"
 msgid "level {}"
 msgstr "niveau {}"
@@ -159,3 +159,25 @@ msgstr[1] "{n} rijen gekopieerd"
 msgctxt "access-widgets"
 msgid "{} of {} shown"
 msgstr "{} van {} getoond"
+
+#: ui/tree.slint:32
+msgctxt "access-widgets"
+msgid "expanded"
+msgstr "uitgeklapt"
+
+#: ui/tree.slint:33
+msgctxt "access-widgets"
+msgid "collapsed"
+msgstr "ingeklapt"
+
+#: ui/tree.slint:34
+msgctxt "access-widgets"
+msgid "Empty"
+msgstr "Leeg"
+
+#: ui/tree.slint:36
+msgctxt "access-widgets"
+msgid "expanded, {n} item"
+msgid_plural "expanded, {n} items"
+msgstr[0] "uitgeklapt, {n} item"
+msgstr[1] "uitgeklapt, {n} items"

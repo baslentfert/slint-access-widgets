@@ -263,6 +263,11 @@ export component AccessRow inherits Rectangle {
     // What a screen reader says for this row, e.g. "report.pdf, Size 2 MB".
     in property <string> label;
     in property <bool> selected: index == state.current;
+    // For tree rows: can be expanded, is expanded, and an extra
+    // description ("level 2").
+    in property <bool> expandable: false;
+    in property <bool> expanded: false;
+    in property <string> description;
 
     // Move to a row. The modifiers say how the selection follows (Shift
     // extends, Ctrl only moves the focus).
@@ -313,6 +318,9 @@ export component AccessRow inherits Rectangle {
     accessible-item-selected: selected;
     accessible-item-index: index;
     accessible-item-count: state.count;
+    accessible-expandable: expandable;
+    accessible-expanded: expanded;
+    accessible-description: description;
     accessible-action-default => { activated(index); }
 
     function claim() {

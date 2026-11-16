@@ -120,6 +120,18 @@ item has focus of its own and reads with its state ("Owner, checked",
 "Add to sort, unavailable"). Up/Down/Home/End, a letter to jump, Enter or
 Space to choose, Escape or Tab to close.
 
+## AccessTree
+
+A tree (folders, groups), built on the table's building blocks, so only the
+rows on screen exist. One Tab stop; Up/Down/Home/End; Right opens a node or
+goes to its first child, Left closes it or goes to its parent; Enter
+activates; letters jump. Rows read as "Projects, expanded, level 2"; on
+Linux, where "expanded" doesn't reach screen readers yet (AccessKit #824),
+it is said in the description and announced ("expanded, 3 items"). A
+folder that turns out empty says "Empty". `TreeRows` (Rust) keeps the
+visible rows and loads children the first time a node opens, so they can
+come from a disk or another computer.
+
 ## AccessFilter
 
 A quick filter field that announces "12 of 2000 shown" once you stop
@@ -148,6 +160,7 @@ Examples (`cargo run` in each):
 | `examples/remote` | lazy loading: 100,000 files on a slow server, searched and sorted there |
 | `examples/autocomplete` | typing with suggestions that arrive from a "server" |
 | `examples/controls` | smaller controls: the ⓘ button, segmented choices |
+| `examples/tree` | a folder tree whose folders load when opened |
 
 ## Translations
 
@@ -176,7 +189,7 @@ scripts/headless.sh python3 -I scripts/a11y-test.py
 Table semantics (rows, cells, column headers) for screen readers need Slint
 and AccessKit ([slint#14965](https://github.com/slint-ui/slint/issues/14965));
 until then rows are read as list items with their column titles. Still to
-come: tree rows and groups, a card layout for
+come: tree rows inside the table, groups, a card layout for
 narrow windows, editable cells, rows of different heights, drag and drop,
 right-to-left.
 

@@ -234,6 +234,30 @@ SCENARIOS = {
         ("Tab", 'radio button "Off" #4 checked', None),
         ("Tab", 'button "Save"', None),
     ],
+    "tree": [
+        ("Tab", 'list item "Documents" #1', None),
+        # Right opens (announced on Linux: AccessKit #824), then goes in.
+        ("Right", 'desc="level 1, expanded"', "expanded, 3 items"),
+        ("Right", 'list item "Projects" #2', None),
+        ("Right", 'list item "Projects" #2', "expanded"),
+        ("Down", 'list item "2025" #3', None),
+        ("Down", 'list item "2026" #4', None),
+        ("Right", 'desc="level 3, expanded"', "expanded, 3 items"),
+        ("Right", 'list item "plan.pdf" #5', None),
+        # Left: up to the parent, then closes it, then up again.
+        ("Left", 'list item "2026" #4', None),
+        ("Left", 'desc="level 3, collapsed"', "collapsed"),
+        ("Left", 'list item "Projects" #2', None),
+        ("Left", 'list item "Projects" #2', "collapsed"),
+        ("Down", 'list item "Finance" #3', None),
+        ("End", 'list item "Downloads"', None),
+        # An empty folder: nothing to open.
+        ("Right", 'list item "Downloads" #6 selected desc="level 1"', "Empty"),
+        ("Home", 'list item "Documents" #1', None),
+        # Type-ahead over the visible rows: Projects, then Pictures.
+        ("p", 'list item "Projects" #2', None),
+        ("p", 'list item "Pictures"', None),
+    ],
     "remote": [
         ("Tab", 'entry "Search on the server"', None),
         ("Tab", 'button "Name" #1', None),

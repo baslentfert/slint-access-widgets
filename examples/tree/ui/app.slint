@@ -1,0 +1,31 @@
+// A folder tree; a folder's contents are only loaded when it opens.
+
+import { AccessTree, AccessTreeRow } from "@access-widgets";
+import { VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Tree";
+    preferred-width: 420px;
+    preferred-height: 440px;
+    in property <[AccessTreeRow]> rows;
+    in-out property <string> status;
+    callback expand(int) -> int;
+    callback collapse(int);
+    callback parent-of(int) -> int;
+    callback find(string, int) -> int;
+    callback activated(int);
+
+    VerticalBox {
+        Text { text: "Folders: Right opens, Left closes or goes up, Enter opens a file."; wrap: word-wrap; }
+        AccessTree {
+            label: "Folders";
+            rows: root.rows;
+            expand(i) => { root.expand(i) }
+            collapse(i) => { root.collapse(i); }
+            parent-of(i) => { root.parent-of(i) }
+            find(p, f) => { root.find(p, f) }
+            activated(i) => { root.activated(i); }
+        }
+        Text { text: status; }
+    }
+}

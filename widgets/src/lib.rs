@@ -332,6 +332,202 @@ impl LazyRows {
     }
 }
 
+/// The rows of an `AccessTree`: the visible nodes, flattened. Opens and
+/// closes nodes, loads children the first time a node opens (so they can
+/// come from a disk, a database or another computer), and knows each row's
+/// parent.
+///
+/// `R` is the row type of your app (Slint's generated `AccessTreeRow`);
+/// `make` builds one from a [`TreeRowInfo`].
+///
+/// ```ignore
+/// let tree = Rc::new(TreeRows::new(
+///     |r: &TreeRowInfo| AccessTreeRow { text: r.text.clone().into(), level: r.level, has_children: r.has_children, expanded: r.expanded },
+///     |node| children_of(node), // (text, has_children) per child
+/// ));
+/// tree.set_roots(vec![("Documents".into(), true), ("Pictures".into(), true)]);
+/// window.set_rows(tree.model());
+/// let t = tree.clone();
+/// window.on_expand(move |row| t.expand(row as usize) as i32);
+/// ```
+pub struct TreeRows<R: Clone + 'static> {
+    model: Rc<VecModel<R>>,
+    make: Box<dyn Fn(&TreeRowInfo) -> R>,
+    load: Box<dyn Fn(usize) -> Vec<(String, bool)>>,
+    nodes: std::cell::RefCell<Vec<TreeNode>>,
+    /// Node per visible row.
+    visible: std::cell::RefCell<Vec<usize>>,
+}
+
+/// What a tree row shows.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TreeRowInfo {
+    pub text: String,
+    /// 1 for the top level.
+    pub level: i32,
+    pub has_children: bool,
+    pub expanded: bool,
+}
+
+struct TreeNode {
+    text: String,
+    level: i32,
+    parent: Option<usize>,
+    has_children: bool,
+    /// `None` until loaded.
+    children: Option<Vec<usize>>,
+    expanded: bool,
+}
+
+impl<R: Clone + 'static> TreeRows<R> {
+    /// `make` turns a row into your row type; `load` gives the children of
+    /// a node (its id, see [`TreeRows::node_of`]) as (text, has children).
+    pub fn new(make: impl Fn(&TreeRowInfo) -> R + 'static, load: impl Fn(usize) -> Vec<(String, bool)> + 'static) -> Self {
+        Self {
+            model: Rc::new(VecModel::default()),
+            make: Box::new(make),
+            load: Box::new(load),
+            nodes: Default::default(),
+            visible: Default::default(),
+        }
+    }
+
+    /// For `rows`.
+    pub fn model(&self) -> ModelRc<R> {
+        self.model.clone().into()
+    }
+
+    /// Start over with these top-level nodes: (text, has children).
+    pub fn set_roots(&self, roots: Vec<(String, bool)>) {
+        let mut nodes = self.nodes.borrow_mut();
+        nodes.clear();
+        for (text, has_children) in roots {
+            nodes.push(TreeNode { text, level: 1, parent: None, has_children, children: None, expanded: false });
+        }
+        let ids: Vec<usize> = (0..nodes.len()).collect();
+        drop(nodes);
+        *self.visible.borrow_mut() = ids.clone();
+        self.model.set_vec(ids.iter().map(|&id| self.row(id)).collect::<Vec<_>>());
+    }
+
+    fn info(&self, id: usize) -> TreeRowInfo {
+        let n = &self.nodes.borrow()[id];
+        TreeRowInfo { text: n.text.clone(), level: n.level, has_children: n.has_children, expanded: n.expanded }
+    }
+
+    fn row(&self, id: usize) -> R {
+        (self.make)(&self.info(id))
+    }
+
+    /// The node (id) shown in `row`.
+    pub fn node_of(&self, row: usize) -> Option<usize> {
+        self.visible.borrow().get(row).copied()
+    }
+
+    /// The text of a node, e.g. to build a path.
+    pub fn text_of(&self, node: usize) -> Option<String> {
+        self.nodes.borrow().get(node).map(|n| n.text.clone())
+    }
+
+    /// The parent node of a node.
+    pub fn parent_node(&self, node: usize) -> Option<usize> {
+        self.nodes.borrow().get(node).and_then(|n| n.parent)
+    }
+
+    /// The row of the parent of `row`; -1 at the top level.
+    pub fn parent_of(&self, row: usize) -> i32 {
+        let Some(id) = self.node_of(row) else { return -1 };
+        let Some(p) = self.nodes.borrow()[id].parent else { return -1 };
+        self.visible.borrow().iter().position(|&v| v == p).map_or(-1, |i| i as i32)
+    }
+
+    /// Opens the node in `row` (loading its children the first time) and
+    /// returns how many children it has.
+    pub fn expand(&self, row: usize) -> usize {
+        let Some(id) = self.node_of(row) else { return 0 };
+        if self.nodes.borrow()[id].expanded || !self.nodes.borrow()[id].has_children {
+            return self.nodes.borrow()[id].children.as_ref().map_or(0, |c| c.len());
+        }
+        if self.nodes.borrow()[id].children.is_none() {
+            let loaded = (self.load)(id);
+            let mut nodes = self.nodes.borrow_mut();
+            let level = nodes[id].level + 1;
+            let mut ids = Vec::with_capacity(loaded.len());
+            for (text, has_children) in loaded {
+                ids.push(nodes.len());
+                nodes.push(TreeNode { text, level, parent: Some(id), has_children, children: None, expanded: false });
+            }
+            nodes[id].has_children = !ids.is_empty();
+            nodes[id].children = Some(ids);
+        }
+        // Empty after all: no triangle, not "expanded".
+        if !self.nodes.borrow()[id].has_children {
+            self.model.set_row_data(row, self.row(id));
+            return 0;
+        }
+        self.nodes.borrow_mut()[id].expanded = true;
+        // The rows under it: its children, and theirs if they were open.
+        let mut under = Vec::new();
+        self.open_rows(id, &mut under);
+        let n = self.nodes.borrow()[id].children.as_ref().map_or(0, |c| c.len());
+        self.model.set_row_data(row, self.row(id));
+        for (k, &c) in under.iter().enumerate() {
+            self.model.insert(row + 1 + k, self.row(c));
+        }
+        let mut vis = self.visible.borrow_mut();
+        let tail = vis.split_off(row + 1);
+        vis.extend(under);
+        vis.extend(tail);
+        n
+    }
+
+    fn open_rows(&self, id: usize, out: &mut Vec<usize>) {
+        let children = self.nodes.borrow()[id].children.clone().unwrap_or_default();
+        for c in children {
+            out.push(c);
+            if self.nodes.borrow()[c].expanded {
+                self.open_rows(c, out);
+            }
+        }
+    }
+
+    /// Closes the node in `row` (its rows go; what was open under it stays
+    /// open for next time).
+    pub fn collapse(&self, row: usize) {
+        let Some(id) = self.node_of(row) else { return };
+        if !self.nodes.borrow()[id].expanded {
+            return;
+        }
+        self.nodes.borrow_mut()[id].expanded = false;
+        let level = self.nodes.borrow()[id].level;
+        let mut vis = self.visible.borrow_mut();
+        let mut end = row + 1;
+        while end < vis.len() && self.nodes.borrow()[vis[end]].level > level {
+            end += 1;
+        }
+        vis.drain(row + 1..end);
+        drop(vis);
+        for _ in row + 1..end {
+            self.model.remove(row + 1);
+        }
+        self.model.set_row_data(row, self.row(id));
+    }
+
+    /// The text per row (for `find_prefix_by`).
+    pub fn text_at(&self, row: usize) -> Option<String> {
+        self.node_of(row).and_then(|id| self.text_of(id))
+    }
+
+    /// Number of visible rows.
+    pub fn len(&self) -> usize {
+        self.visible.borrow().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -372,6 +568,38 @@ mod tests {
         l.reset(5);
         assert_eq!(l.model().row_count(), 5);
         assert_eq!(l.needed(0, 5), vec![0..5]);
+    }
+
+    #[test]
+    fn tree_opens_closes_and_finds_parents() {
+        // a (b (d), c)  e
+        let t = TreeRows::new(
+            |r: &TreeRowInfo| format!("{}{}{}", "  ".repeat(r.level as usize - 1), if r.expanded { "-" } else if r.has_children { "+" } else { " " }, r.text),
+            |node| match node {
+                0 => vec![("b".into(), true), ("c".into(), false)],
+                2 => vec![("d".into(), false)],
+                _ => vec![],
+            },
+        );
+        t.set_roots(vec![("a".into(), true), ("e".into(), true)]);
+        let rows = || t.model().iter().collect::<Vec<_>>();
+        assert_eq!(rows(), ["+a", "+e"]);
+        assert_eq!(t.expand(0), 2);
+        assert_eq!(rows(), ["-a", "  +b", "   c", "+e"]);
+        assert_eq!(t.expand(1), 1);
+        assert_eq!(rows(), ["-a", "  -b", "     d", "   c", "+e"]);
+        assert_eq!(t.parent_of(2), 1);
+        assert_eq!(t.parent_of(3), 0);
+        assert_eq!(t.parent_of(0), -1);
+        // Closing a hides b and d; b stays open for next time.
+        t.collapse(0);
+        assert_eq!(rows(), ["+a", "+e"]);
+        t.expand(0);
+        assert_eq!(rows(), ["-a", "  -b", "     d", "   c", "+e"]);
+        // A node without children turns out to have none: no triangle.
+        assert_eq!(t.expand(4), 0);
+        assert_eq!(rows(), ["-a", "  -b", "     d", "   c", " e"]);
+        assert_eq!(t.text_at(2).as_deref(), Some("d"));
     }
 
     #[test]
