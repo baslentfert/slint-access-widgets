@@ -138,6 +138,14 @@ SCENARIOS = {
         ("Escape", 'button "Name', None),
         ("ctrl+shift+Right", 'button "Name', "Name, column 2 of 6"),
         ("ctrl+shift+Left", 'button "Name', "Name, column 1 of 6"),
+        # The row menu: also followed item by item; the focus comes back.
+        ("Tab", "list item", None),
+        ("Menu", 'list item "Open" #1', None),
+        ("Down", 'list item "Copy" #2', None),
+        ("Down", 'list item "Delete" #4', None),
+        ("Return", "list item", "(not really)"),
+        ("shift+F10", 'list item "Open" #1', None),
+        ("Escape", "list item", None),
     ],
     "transfer": [
         ("Tab", 'list item "holiday-00.mp4, 6 MB" #1', None),

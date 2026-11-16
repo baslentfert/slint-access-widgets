@@ -44,6 +44,9 @@ A drop-in for `StandardTableView` (same `columns` and `rows`):
   (Delete hides, Ctrl+Shift+Left/Right moves), and every change is
   announced ("Size, hidden", "Name, column 2 of 6"). Your app moves the
   data (`move-column`).
+- **A row menu** (`row-menu`: your items; right click, Menu key or
+  Shift+F10 on a row), followed item by item by screen readers; the focus
+  comes back to the row.
 - **Several rows at once**, as in File Explorer: Shift extends, Ctrl moves
   only the focus, Space or Ctrl+click adds or removes, Ctrl+A selects all;
   "3 selected" is announced. `Selection` (Rust) keeps the **same items
@@ -126,7 +129,7 @@ scripts/headless.sh python3 -I scripts/a11y-test.py
 Table semantics (rows, cells, column headers) for screen readers need Slint
 and AccessKit ([slint#14965](https://github.com/slint-ui/slint/issues/14965));
 until then rows are read as list items with their column titles. Still to
-come: a menu on rows, tree rows and groups, a card layout for
+come: tree rows and groups, a card layout for
 narrow windows, editable cells, rows of different heights, drag and drop,
 right-to-left.
 

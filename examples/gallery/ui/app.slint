@@ -1,4 +1,4 @@
-import { AccessTable, AccessFilter, AccessDensity, AccessSort } from "@access-widgets";
+import { AccessTable, AccessFilter, AccessDensity, AccessSort, AccessAnnouncer } from "@access-widgets";
 import { Button, VerticalBox, HorizontalBox, ComboBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
@@ -62,6 +62,17 @@ export component AppWindow inherits Window {
             move-column(f, t) => { root.move-column(f, t); }
             find(p, f) => { root.find(p, f) }
             row-activated(i) => { status = @tr("Opened {}", files[i][0].text); }
+            // A row menu that screen readers follow.
+            row-menu: [
+                { title: @tr("Open"), enabled: true },
+                { title: @tr("Copy"), enabled: true },
+                { title: @tr("Rename"), enabled: false },
+                { title: @tr("Delete"), enabled: true, separator: true },
+            ];
+            row-menu-activated(r, item) => {
+                status = (item == 0 ? @tr("Opened {}", files[r][0].text) : item == 1 ? @tr("Copied {}", files[r][0].text) : @tr("Deleted {} (not really)", files[r][0].text));
+                news.say(status);
+            }
         }
         HorizontalBox {
             padding: 0;
@@ -69,4 +80,5 @@ export component AppWindow inherits Window {
             Text { text: status; vertical-alignment: center; }
         }
     }
+    news := AccessAnnouncer { }
 }

@@ -19,106 +19,243 @@ msgctxt "AppWindow"
 msgid "Modified"
 msgstr ""
 
-#: ui/app.slint:30
+#: ui/app.slint:16
+msgctxt "AppWindow"
+msgid "Type"
+msgstr ""
+
+#: ui/app.slint:17
+msgctxt "AppWindow"
+msgid "Folder"
+msgstr ""
+
+#: ui/app.slint:18
+msgctxt "AppWindow"
+msgid "Owner"
+msgstr ""
+
+#: ui/app.slint:37
 msgctxt "AppWindow"
 msgid "Filter files"
 msgstr ""
 
-#: ui/app.slint:35 ui/app.slint:37
+#: ui/app.slint:42 ui/app.slint:44
 msgctxt "AppWindow"
 msgid "Rows"
 msgstr ""
 
-#: ui/app.slint:38
+#: ui/app.slint:45
 msgctxt "AppWindow"
 msgid "Compact"
 msgstr ""
 
-#: ui/app.slint:38
+#: ui/app.slint:45
 msgctxt "AppWindow"
 msgid "Standard"
 msgstr ""
 
-#: ui/app.slint:38
+#: ui/app.slint:45
 msgctxt "AppWindow"
 msgid "Comfortable"
 msgstr ""
 
-#: ui/app.slint:41
+#: ui/app.slint:48
 msgctxt "AppWindow"
 msgid "Reload"
 msgstr ""
 
-#: ui/app.slint:44
+#: ui/app.slint:51
 msgctxt "AppWindow"
 msgid "Downloads"
 msgstr ""
 
-#: ui/app.slint:51
+#: ui/app.slint:58
 msgctxt "AppWindow"
 msgid "No files match the filter"
 msgstr ""
 
-#: ui/app.slint:56
+#: ui/app.slint:64 ui/app.slint:73
 msgctxt "AppWindow"
 msgid "Opened {}"
 msgstr ""
 
-#: ui/app.slint:60
+#: ui/app.slint:67
+msgctxt "AppWindow"
+msgid "Open"
+msgstr ""
+
+#: ui/app.slint:68
+msgctxt "AppWindow"
+msgid "Copy"
+msgstr ""
+
+#: ui/app.slint:69
+msgctxt "AppWindow"
+msgid "Rename"
+msgstr ""
+
+#: ui/app.slint:70
+msgctxt "AppWindow"
+msgid "Delete"
+msgstr ""
+
+#: ui/app.slint:73
+msgctxt "AppWindow"
+msgid "Copied {}"
+msgstr ""
+
+#: ui/app.slint:73
+msgctxt "AppWindow"
+msgid "Deleted {} (not really)"
+msgstr ""
+
+#: ui/app.slint:79
 msgctxt "AppWindow"
 msgid "Go to the table"
 msgstr ""
 
 #. From the crate slint-access-widgets
-#: slint-access-widgets:ui/table.slint:57
+#: slint-access-widgets:ui/table.slint:62
 msgctxt "access-widgets"
 msgid "sorted ascending"
 msgstr ""
 
 #. From the crate slint-access-widgets
-#: slint-access-widgets:ui/table.slint:58
+#: slint-access-widgets:ui/table.slint:63
 msgctxt "access-widgets"
 msgid "sorted descending"
 msgstr ""
 
 #. From the crate slint-access-widgets
-#: slint-access-widgets:ui/table.slint:59
+#: slint-access-widgets:ui/table.slint:64
 msgctxt "access-widgets"
 msgid "column header"
 msgstr ""
 
 #. From the crate slint-access-widgets
-#: slint-access-widgets:ui/table.slint:60
+#: slint-access-widgets:ui/table.slint:65
 msgctxt "access-widgets"
 msgid "items"
 msgstr ""
 
 #. From the crate slint-access-widgets
-#: slint-access-widgets:ui/table.slint:61
+#: slint-access-widgets:ui/table.slint:66
 msgctxt "access-widgets"
 msgid "Column headers"
 msgstr ""
 
 #. From the crate slint-access-widgets
-#: slint-access-widgets:ui/table.slint:62
+#: slint-access-widgets:ui/table.slint:67
 msgctxt "access-widgets"
 msgid "No items"
 msgstr ""
 
 #. From the crate slint-access-widgets
-#: slint-access-widgets:ui/table.slint:63
+#: slint-access-widgets:ui/table.slint:68
 msgctxt "access-widgets"
 msgid "Loading…"
 msgstr ""
 
 #. From the crate slint-access-widgets
-#: slint-access-widgets:ui/table.slint:65
+#: slint-access-widgets:ui/table.slint:70
 msgctxt "access-widgets"
 msgid "{} selected"
 msgstr ""
 
 #. From the crate slint-access-widgets
-#: slint-access-widgets:ui/table.slint:68
+#: slint-access-widgets:ui/table.slint:73
+msgctxt "access-widgets"
+msgid "column {} of {}"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:76
+msgctxt "access-widgets"
+msgid "level {}"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:78
+msgctxt "access-widgets"
+msgid "then"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:80
+msgctxt "access-widgets"
+msgid "Sort ascending"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:81
+msgctxt "access-widgets"
+msgid "Sort descending"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:82
+msgctxt "access-widgets"
+msgid "Add to sort"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:83
+msgctxt "access-widgets"
+msgid "Size to fit"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:84
+msgctxt "access-widgets"
+msgid "Hide column"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:85
+msgctxt "access-widgets"
+msgid "Columns"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:86
+msgctxt "access-widgets"
+msgid "Move left"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:87
+msgctxt "access-widgets"
+msgid "Move right"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:88
+msgctxt "access-widgets"
+msgid "column menu"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:89
+msgctxt "access-widgets"
+msgid "hidden"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:90
+msgctxt "access-widgets"
+msgid "shown"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:92
+msgctxt "access-widgets"
+msgid "{n} row copied"
+msgid_plural "{n} rows copied"
+msgstr[0] ""
+msgstr[1] ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:95
 msgctxt "access-widgets"
 msgid "{} of {} shown"
 msgstr ""

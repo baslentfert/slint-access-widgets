@@ -17,7 +17,7 @@
 
 import { Palette, ScrollView } from "std-widgets.slint";
 import { AccessFocus } from "focus.slint";
-import { AccessMenuEntry, AccessMenuItem } from "menu.slint";
+import { AccessMenu, AccessMenuEntry, AccessMenuItem } from "menu.slint";
 
 // Row height: compact 24 px, standard 32 px, comfortable 40 px (as in
 // IBM Carbon); rows grow when the text gets larger.
@@ -956,6 +956,13 @@ export component AccessTable inherits Rectangle {
     callback row-activated(int);
     // Menu key, Shift+F10 or right click.
     callback row-context-menu(int, length, length);
+    // A menu on the rows (right click, Menu key or Shift+F10), one that
+    // screen readers follow (`AccessMenu`). Empty: no menu, only
+    // `row-context-menu` (for a menu of your own).
+    in property <[AccessMenuItem]> row-menu;
+    // An item of `row-menu` was chosen for this row; afterwards the focus
+    // is back on the row.
+    callback row-menu-activated(row: int, item: int);
     // Type-ahead on the first column: wire it to
     // `slint_access_widgets::find_prefix` (see the crate docs).
     callback find(prefix: string, from: int) -> int;
@@ -1115,7 +1122,15 @@ export component AccessTable inherits Rectangle {
                     if (multi-select) { announce(AccessTableTexts.selected-count(select(i, AccessSelect.toggle))); }
                 }
                 activated(i) => { root.row-activated(i); }
-                context-menu(i, x, y) => { root.row-context-menu(i, x, y); }
+                context-menu(i, x, y) => {
+                    if (row-menu.length > 0) {
+                        menu-row = i;
+                        // Under the row (or at the mouse), in table coordinates.
+                        row-menu-box.open(x + 8px, header.height + i * view.state.row-height + view.content-y + y);
+                    } else {
+                        root.row-context-menu(i, x, y);
+                    }
+                }
                 typed(t) => { view.type-ahead(t); }
                 focus-changed(f) => { view.active = f; }
                 horizontal(d) => {
@@ -1346,6 +1361,27 @@ export component AccessTable inherits Rectangle {
             accessible-role: none;
         }
     }
+    // The row menu, on top of the table.
+    property <int> menu-row: 0;
+    row-menu-box := AccessMenu {
+        width: root.width;
+        height: root.height;
+        items: row-menu;
+        label: menu-row < rows.length && rows[menu-row].length > 0 ? rows[menu-row][0].text : "";
+        activated(i) => { root.row-menu-activated(menu-row, i); }
+        // Back to the row once the menu is really gone (giving the focus
+        // while its items still hold it does not stick).
+        closed => { back-to-row.start(); }
+    }
+    back-to-row := Timer {
+        interval: 1ms;
+        running: false;
+        triggered => {
+            self.stop();
+            view.focus-current();
+        }
+    }
+
     // The column menu, on top of the table.
     property <int> menu-col: 0;
     column-menu := ColumnMenu {
