@@ -32,4 +32,7 @@ jobs:
             cargo build --manifest-path examples/$e/Cargo.toml
           done
       - name: what a screen reader gets, key by key
+        # No OpenGL on the runner: Slint's software renderer.
+        env:
+          SLINT_BACKEND: winit-software
         run: scripts/headless.sh python3 -I scripts/a11y-test.py

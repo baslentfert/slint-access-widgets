@@ -178,7 +178,8 @@ def run(name):
     exe = os.path.join(ROOT, "examples", name, "target", "debug", name)
     # English, whatever the system language is.
     env = dict(os.environ, LANGUAGE="en", LANG="C.UTF-8", LC_ALL="C.UTF-8")
-    app_proc = subprocess.Popen([exe], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    log = open(f"/tmp/a11y-test-{name}.log", "w+")
+    app_proc = subprocess.Popen([exe], env=env, stdout=log, stderr=subprocess.STDOUT)
     try:
         app = None
         for _ in range(60):
@@ -187,7 +188,9 @@ def run(name):
                 break
             time.sleep(0.25)
         if not app:
-            print(f"{name}: not on the accessibility bus")
+            print(f"{name}: not on the accessibility bus (running: {app_proc.poll() is None})")
+            log.seek(0)
+            print("  " + log.read()[-2000:].replace("\n", "\n  "))
             return False
         win = subprocess.run(["xdotool", "search", "--sync", "--onlyvisible", "--pid", str(app_proc.pid)], capture_output=True, text=True).stdout.split()
         subprocess.run(["xdotool", "windowfocus", "--sync", win[-1]])
