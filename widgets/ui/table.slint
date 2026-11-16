@@ -352,7 +352,16 @@ export component AccessRow inherits Rectangle {
         }
     }
 
+    property <bool> menu-on-shift-up;
     fs := FocusScope {
+        key-released(e) => {
+            if (menu-on-shift-up && e.text == Key.Shift) {
+                menu-on-shift-up = false;
+                context-menu(index, 16px, root.height);
+                return accept;
+            }
+            reject
+        }
         // One Tab stop for the whole table: only the current row (or, when
         // that is scrolled away, the first row on screen, which hands the
         // focus on to the current row).
@@ -383,8 +392,15 @@ export component AccessRow inherits Rectangle {
             if (e.text == " ") { toggled(index); return accept; }
             if (e.text == Key.Delete) { deleted(index); return accept; }
             if (e.text == Key.Escape && escape()) { return accept; }
-            if (e.text == Key.Menu || (e.text == Key.F10 && e.modifiers.shift)) {
+            if (e.text == Key.Menu) {
                 context-menu(index, 16px, root.height);
+                return accept;
+            }
+            // Shift+F10: open once Shift is let go. A system menu (Windows)
+            // swallows that release, and Slint would then think Shift is
+            // still down (Tab going backwards).
+            if (e.text == Key.F10 && e.modifiers.shift) {
+                menu-on-shift-up = true;
                 return accept;
             }
             // Letters and digits: type-ahead. (Special keys are single
@@ -706,8 +722,17 @@ export component AccessTableHeader inherits Rectangle {
                 + (sort-column2 >= 0 ? ", " + AccessTableTexts.sort-level(level-of(i)) : "")
     }
 
+    property <bool> menu-on-shift-up;
     fs := FocusScope {
         focus-on-tab-navigation: sortable;
+        key-released(e) => {
+            if (menu-on-shift-up && e.text == Key.Shift) {
+                menu-on-shift-up = false;
+                show-menu(current-column);
+                return accept;
+            }
+            reject
+        }
         focus-gained(reason) => {
             if (reason == FocusReason.tab-navigation) { AccessFocus.keyboard = true; }
         }
@@ -725,7 +750,9 @@ export component AccessTableHeader inherits Rectangle {
             if (e.text == Key.Home) { current-column = shown(0) ? 0 : next-shown(0, 1); return accept; }
             if (e.text == Key.End) { current-column = shown(columns.length - 1) ? columns.length - 1 : next-shown(columns.length - 1, -1); return accept; }
             // The menu: Menu key or Shift+F10.
-            if (e.text == Key.Menu || (e.text == Key.F10 && e.modifiers.shift)) { show-menu(current-column); return accept; }
+            if (e.text == Key.Menu) { show-menu(current-column); return accept; }
+            // Shift+F10: once Shift is let go (see `AccessRow`).
+            if (e.text == Key.F10 && e.modifiers.shift) { menu-on-shift-up = true; return accept; }
             // Everything in the menu has a key too: Ctrl+Shift+Left/Right
             // moves the column, Delete hides it.
             if (e.text == Key.Delete) { toggle-column(current-column); return accept; }
@@ -1038,8 +1065,7 @@ export component AccessTable inherits Rectangle {
                 menu-col = c;
                 if (native-menus) {
                     native-column-menu.show({ x: x + view.content-x, y: header.height });
-                    native-menu-from = 1;
-                    native-menu-watch.start();
+
                 } else {
                     column-menu.open(x + view.content-x, header.height);
                 }
@@ -1142,8 +1168,7 @@ export component AccessTable inherits Rectangle {
                         // Under the row (or at the mouse), in table coordinates.
                         if (native-menus) {
                             native-row-menu.show({ x: x + 8px, y: header.height + i * view.state.row-height + view.content-y + y });
-                            native-menu-from = 2;
-                            native-menu-watch.start();
+
                         } else {
                             row-menu-box.open(x + 8px, header.height + i * view.state.row-height + view.content-y + y);
                         }
@@ -1426,22 +1451,6 @@ export component AccessTable inherits Rectangle {
                     activated => { root.row-menu-activated(menu-row, i); }
                 }
             }
-        }
-    }
-
-    // After a system menu closes, Slint (1.18, Windows) loses its place in
-    // the Tab order: Tab from the header went back to the controls before
-    // it. Giving the focus back explicitly puts it right. A system menu
-    // holds the app while it is open, so this fires once it has closed.
-    property <int> native-menu-from: 0;
-    native-menu-watch := Timer {
-        interval: 1ms;
-        running: false;
-        triggered => {
-            self.stop();
-            if (native-menu-from == 1) { header.focus-header(); }
-            if (native-menu-from == 2) { view.focus-current(); }
-            native-menu-from = 0;
         }
     }
 
