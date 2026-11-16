@@ -962,6 +962,12 @@ export component AccessTable inherits Rectangle {
     // screen readers follow (`AccessMenu`). Empty: no menu, only
     // `row-context-menu` (for a menu of your own).
     in property <[AccessMenuItem]> row-menu;
+    // Use the system's own menus (Slint's context menu) for the column and
+    // row menus. On Windows these are real Windows menus, which screen
+    // readers know (tested: roles, focus, checked and unavailable states);
+    // on macOS native menus too. On Linux Slint draws its menus itself and
+    // screen readers can't follow them yet, so there `AccessMenu` is used.
+    in property <bool> native-menus: Platform.os == OperatingSystemType.windows || Platform.os == OperatingSystemType.macos;
     // An item of `row-menu` was chosen for this row; afterwards the focus
     // is back on the row.
     callback row-menu-activated(row: int, item: int);
@@ -1030,7 +1036,11 @@ export component AccessTable inherits Rectangle {
             }
             menu-requested(c, x) => {
                 menu-col = c;
-                column-menu.open(x + view.content-x, header.height);
+                if (native-menus) {
+                    native-column-menu.show({ x: x + view.content-x, y: header.height });
+                } else {
+                    column-menu.open(x + view.content-x, header.height);
+                }
             }
             move-column(f, t) => {
                 root.move-column(f, t);
@@ -1128,7 +1138,11 @@ export component AccessTable inherits Rectangle {
                     if (row-menu.length > 0) {
                         menu-row = i;
                         // Under the row (or at the mouse), in table coordinates.
-                        row-menu-box.open(x + 8px, header.height + i * view.state.row-height + view.content-y + y);
+                        if (native-menus) {
+                            native-row-menu.show({ x: x + 8px, y: header.height + i * view.state.row-height + view.content-y + y });
+                        } else {
+                            row-menu-box.open(x + 8px, header.height + i * view.state.row-height + view.content-y + y);
+                        }
                     } else {
                         root.row-context-menu(i, x, y);
                     }
@@ -1363,6 +1377,54 @@ export component AccessTable inherits Rectangle {
             accessible-role: none;
         }
     }
+    // The same menus as system menus (`native-menus`). Their area is empty,
+    // so they only open when asked; positions are in table coordinates.
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: 0;
+        height: 0;
+        native-column-menu := ContextMenuArea {
+            Menu {
+                MenuItem { title: AccessTableTexts.sort-ascending-command; activated => { header.menu-action(menu-col, 0); } }
+                MenuItem { title: AccessTableTexts.sort-descending-command; activated => { header.menu-action(menu-col, 1); } }
+                MenuItem {
+                    title: AccessTableTexts.add-to-sort;
+                    enabled: header.sort-column >= 0 && header.level-of(menu-col) == 0;
+                    activated => { header.menu-action(menu-col, 2); }
+                }
+                MenuSeparator { }
+                MenuItem { title: AccessTableTexts.size-to-fit; activated => { header.menu-action(menu-col, 3); } }
+                MenuItem {
+                    title: AccessTableTexts.hide-column;
+                    enabled: header.shown-count > 1;
+                    activated => { header.menu-action(menu-col, 4); }
+                }
+                MenuSeparator { }
+                MenuItem { title: AccessTableTexts.move-left; enabled: menu-col > 0; activated => { header.menu-action(menu-col, 5); } }
+                MenuItem { title: AccessTableTexts.move-right; enabled: menu-col < columns.length - 1; activated => { header.menu-action(menu-col, 6); } }
+                MenuSeparator { }
+                for col[c] in columns : MenuItem {
+                    title: col.title;
+                    checkable: true;
+                    checked: col.width >= 0;
+                    activated => { header.menu-action(menu-col, 7 + c); }
+                }
+            }
+        }
+        native-row-menu := ContextMenuArea {
+            Menu {
+                for item[i] in row-menu : MenuItem {
+                    title: item.title;
+                    enabled: item.enabled;
+                    checkable: item.checkable;
+                    checked: item.checked;
+                    activated => { root.row-menu-activated(menu-row, i); }
+                }
+            }
+        }
+    }
+
     // The row menu, on top of the table.
     property <int> menu-row: 0;
     row-menu-box := AccessMenu {

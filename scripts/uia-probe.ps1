@@ -7,6 +7,39 @@ param([string]$Title = "Menu probe", [string]$Exe = "", [string]$Out = "uia.log"
       [string]$Keys = "", [int]$Depth = 12, [string]$Arguments = "")
 
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
+# Native Win32 menus (Slint's context menu on Windows) are read through MSAA,
+# as NVDA does; the .NET UI Automation client here shows them as empty panes.
+Add-Type -ReferencedAssemblies Accessibility @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+using Accessibility;
+public static class Msaa {
+    [DllImport("oleacc.dll")]
+    static extern int AccessibleObjectFromWindow(IntPtr hwnd, int id, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out IAccessible ppv);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr FindWindow(string cls, string name);
+    [DllImport("oleacc.dll", CharSet = CharSet.Unicode)]
+    static extern uint GetRoleText(uint role, StringBuilder sb, uint len);
+    static string Role(object r) {
+        if (r is int) { var sb = new StringBuilder(64); GetRoleText((uint)(int)r, sb, 64); return sb.ToString(); }
+        return "" + r;
+    }
+    // States: 0x1 unavailable, 0x4 focused, 0x10 checked, 0x80 hot-tracked.
+    public static string Menu() {
+        IntPtr h = FindWindow("#32768", null);
+        if (h == IntPtr.Zero) return null;
+        var iid = new Guid("618736E0-3C3D-11CF-810C-00AA00389B71");
+        IAccessible acc;
+        if (AccessibleObjectFromWindow(h, -4, ref iid, out acc) != 0 || acc == null) return "  native menu: no IAccessible";
+        var sb = new StringBuilder("  native menu: " + Role(acc.get_accRole(0)) + ", focus on item " + acc.accFocus);
+        for (int i = 1; i <= acc.accChildCount; i++) {
+            sb.Append("\n    " + Role(acc.get_accRole(i)) + " '" + acc.get_accName(i) + "' state=0x" + ((int)acc.get_accState(i)).ToString("x"));
+        }
+        return sb.ToString();
+    }
+}
+"@
 $A = [System.Windows.Automation.AutomationElement]
 $log = New-Object System.Collections.Generic.List[string]
 
@@ -62,10 +95,9 @@ foreach ($key in $list) {
     if ($key) { [System.Windows.Forms.SendKeys]::SendWait($key); Start-Sleep -Milliseconds 900 }
     $f = $A::FocusedElement
     $log.Add("after '$key': " + (Line $f 0))
-    # An open menu: what is in it (a native popup menu is a window of its own).
-    $menu = $A::RootElement.FindFirst([System.Windows.Automation.TreeScope]::Children,
-        (New-Object System.Windows.Automation.PropertyCondition($A::ClassNameProperty, "#32768")))
-    if ($menu) { $log.Add("  native menu:"); Tree $menu 2 }
+    # An open native menu: what NVDA reads from it.
+    $menu = [Msaa]::Menu()
+    if ($menu) { $log.Add($menu) }
 }
 if ($proc) {
     $proc.Refresh()
