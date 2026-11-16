@@ -1,0 +1,46 @@
+// A probe for testing menus with screen readers: Slint's own context menu
+// (a native menu on Windows and macOS, drawn by Slint on Linux) next to
+// AccessMenu. Button 1 opens Slint's menu with Shift+F10 or the Menu key,
+// button 2 opens AccessMenu.
+
+import { AccessMenu } from "@access-widgets";
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Menu probe";
+    preferred-width: 420px;
+    preferred-height: 320px;
+    in-out property <string> chosen;
+
+    VerticalBox {
+        slint-menu-area := ContextMenuArea {
+            Menu {
+                MenuItem { title: "Slint first"; activated => { chosen = "Slint first"; } }
+                MenuItem { title: "Slint second"; activated => { chosen = "Slint second"; } }
+                MenuItem { title: "Slint unavailable"; enabled: false; }
+                MenuItem { title: "Slint checkable"; checkable: true; checked: true; }
+            }
+            Button {
+                text: "Slint menu here";
+                clicked => { slint-menu-area.show({ x: 10px, y: 30px }); }
+            }
+        }
+        Button {
+            text: "AccessMenu here";
+            clicked => { access.open(10px, 80px); }
+        }
+        Text { text: "Chosen: " + chosen; }
+    }
+    access := AccessMenu {
+        width: root.width;
+        height: root.height;
+        label: "Probe menu";
+        items: [
+            { title: "Access first", enabled: true },
+            { title: "Access second", enabled: true },
+            { title: "Access unavailable", enabled: false },
+            { title: "Access checkable", enabled: true, checkable: true, checked: true },
+        ];
+        activated(i) => { chosen = "Access " + i; }
+    }
+}
