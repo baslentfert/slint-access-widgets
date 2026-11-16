@@ -7,7 +7,7 @@
 #[cfg(windows)]
 fn main() -> windows::core::Result<()> {
     use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
-    use windows::Win32::System::Variant::VARIANT;
+    use windows::core::VARIANT;
     use windows::Win32::UI::Accessibility::{AccessibleObjectFromWindow, GetRoleTextW, IAccessible};
     use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, OBJID_CLIENT};
     use windows::core::{Interface, w};
