@@ -36,6 +36,10 @@ def describe(a):
         d += f' #{attrs["posinset"]}'
     if st.contains(pyatspi.STATE_SELECTED):
         d += " selected"
+    if a.getRoleName() in ("radio button", "check box", "radio menu item", "check menu item"):
+        d += " checked" if st.contains(pyatspi.STATE_CHECKED) else " unchecked"
+    if not st.contains(pyatspi.STATE_ENABLED):
+        d += " unavailable"
     if st.contains(pyatspi.STATE_EXPANDABLE):
         d += " expanded" if st.contains(pyatspi.STATE_EXPANDED) else " collapsed"
     # (AccessKit doesn't pass "expanded" to AT-SPI yet: AccessKit #824.
@@ -212,9 +216,23 @@ SCENARIOS = {
         ("Tab", 'button "More about Send sound" no-desc', None),
         ("Return", 'button "More about Send sound" desc="The sound', "The sound of this computer"),
         # Tab away: the explanation may stay (WCAG 1.4.13: until dismissed).
-        ("Tab", 'button "Save"', None),
+        ("Tab", 'radio button "There" #2 checked', None),
         ("shift+Tab", 'button "More about Send sound" desc="The sound', None),
         ("Escape", 'button "More about Send sound" no-desc', None),
+        # Segmented: one Tab stop, on the chosen option.
+        ("Tab", 'radio button "There" #2 checked', None),
+        ("Right", 'radio button "Off" #3 checked', None),
+        ("Right", 'radio button "Here" #1 checked', None),
+        ("Left", 'radio button "Off" #3 checked', None),
+        ("Tab", 'radio button "Both ways" #1 checked', None),
+        # "To this computer" is not available: skipped.
+        ("Right", 'radio button "To that computer" #2 checked', None),
+        ("Right", 'radio button "Off" #4 checked', None),
+        ("Home", 'radio button "Both ways" #1 checked', None),
+        ("End", 'radio button "Off" #4 checked', None),
+        ("shift+Tab", 'radio button "Off" #3 checked', None),
+        ("Tab", 'radio button "Off" #4 checked', None),
+        ("Tab", 'button "Save"', None),
     ],
     "remote": [
         ("Tab", 'entry "Search on the server"', None),

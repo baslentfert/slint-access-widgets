@@ -104,6 +104,14 @@ changed width => { AccessWindow.width = self.width; }
 changed height => { AccessWindow.height = self.height; }
 ```
 
+## AccessSegmented
+
+One choice out of a few, as joined buttons (a radio group): one Tab stop on
+the chosen option, the arrows move and choose (round), Home/End, options
+that are not available are skipped (`unavailable`). Reads as "Sound,
+group · Off, radio button, checked, 3 of 3". The choice shows with a tick
+and bold text, not colour alone (WCAG 1.4.1).
+
 ## AccessMenu
 
 A menu that screen readers can follow (Slint 1.18's own context menu shows
@@ -139,7 +147,7 @@ Examples (`cargo run` in each):
 | `examples/transfer` | a list with tick boxes and progress per row, pause and cancel |
 | `examples/remote` | lazy loading: 100,000 files on a slow server, searched and sorted there |
 | `examples/autocomplete` | typing with suggestions that arrive from a "server" |
-| `examples/controls` | smaller controls: the ⓘ button |
+| `examples/controls` | smaller controls: the ⓘ button, segmented choices |
 
 ## Translations
 

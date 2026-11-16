@@ -1,12 +1,13 @@
 // Smaller controls: the ⓘ button (more to come).
 
-import { AccessInfo, AccessWindow } from "@access-widgets";
+import { AccessInfo, AccessWindow, AccessSegmented } from "@access-widgets";
 import { CheckBox, Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
     title: "Controls";
     preferred-width: 520px;
-    preferred-height: 320px;
+    preferred-height: 420px;
+    in-out property <string> chosen;
     // Tell the widgets how big the window is (for placing popups).
     init => {
         AccessWindow.width = self.width;
@@ -37,6 +38,22 @@ export component AppWindow inherits Window {
                 text: "The sound of this computer plays on the other one. It uses more of the connection.";
             }
         }
+        Text { text: "Sound"; font-weight: 600; }
+        sound := AccessSegmented {
+            label: "Sound";
+            options: ["Here", "There", "Off"];
+            current: 1;
+            selected(i) => { chosen = "Sound: " + self.options[i]; }
+        }
+        Text { text: "Clipboard"; font-weight: 600; }
+        AccessSegmented {
+            label: "Clipboard";
+            options: ["Both ways", "To that computer", "To this computer", "Off"];
+            // Not available in this demo: one direction.
+            unavailable: [false, false, true, false];
+            selected(i) => { chosen = "Clipboard: " + self.options[i]; }
+        }
         Button { text: "Save"; }
+        Text { text: chosen; }
     }
 }

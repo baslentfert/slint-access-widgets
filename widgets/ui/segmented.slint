@@ -1,0 +1,169 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// A segmented control: one choice out of a few, as joined buttons (a radio
+// group in the WAI-ARIA Authoring Practices). One Tab stop, on the chosen
+// option; the arrows move and choose at once (round from last to first),
+// skipping options that are not available. A screen reader hears the group
+// name and "Here, radio button, checked, 1 of 3". The choice shows by more
+// than colour: a tick and bold text (WCAG 1.4.1).
+
+import { Palette } from "std-widgets.slint";
+import { AccessFocus } from "focus.slint";
+
+component Segment inherits Rectangle {
+    in property <string> text;
+    in property <int> index;
+    in property <int> count;
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    in property <bool> first;
+    in property <bool> last;
+    in property <int> focus-tick;
+    in property <bool> wants-focus;
+    callback choose();
+    callback move(int);
+
+    min-height: max(32px, t.preferred-height + 14px);
+    min-width: max(48px, t.preferred-width + (checked ? 40px : 28px));
+    horizontal-stretch: 1;
+
+    accessible-role: radio-button;
+    accessible-label: text;
+    accessible-checkable: true;
+    accessible-checked: checked;
+    accessible-enabled: enabled;
+    accessible-item-index: index;
+    accessible-item-count: count;
+    accessible-action-default => { if (enabled) { choose(); } }
+
+    changed focus-tick => { if (wants-focus) { fs.focus(); } }
+
+    Rectangle {
+        background: checked ? Palette.accent-background : touch.has-hover && enabled ? Palette.alternate-background : Palette.control-background;
+        border-width: 1px;
+        border-color: checked ? Palette.accent-background : Palette.border;
+        // Round only the outer corners: the segments look joined.
+        border-top-left-radius: first ? 6px : 0;
+        border-bottom-left-radius: first ? 6px : 0;
+        border-top-right-radius: last ? 6px : 0;
+        border-bottom-right-radius: last ? 6px : 0;
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            AccessFocus.keyboard = false;
+            fs.focus();
+            choose();
+        }
+    }
+    fs := FocusScope {
+        // One Tab stop: the chosen option.
+        focus-on-tab-navigation: checked;
+        focus-on-click: false;
+        enabled: root.enabled;
+        capture-key-pressed(e) => {
+            AccessFocus.keyboard = true;
+            reject
+        }
+        focus-gained(reason) => {
+            if (reason == FocusReason.tab-navigation) { AccessFocus.keyboard = true; }
+        }
+        key-pressed(e) => {
+            if (e.text == Key.RightArrow || e.text == Key.DownArrow) { move(1); return accept; }
+            if (e.text == Key.LeftArrow || e.text == Key.UpArrow) { move(-1); return accept; }
+            if (e.text == Key.Home) { move(-1000); return accept; }
+            if (e.text == Key.End) { move(1000); return accept; }
+            if (e.text == " ") { choose(); return accept; }
+            reject
+        }
+    }
+    HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+        padding-left: 10px;
+        padding-right: 10px;
+        Text {
+            visible: checked;
+            text: "✓";
+            color: Palette.accent-foreground;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+        t := Text {
+            text: root.text;
+            font-weight: checked ? 700 : 400;
+            color: checked ? Palette.accent-foreground : Palette.foreground;
+            opacity: enabled ? 1 : 0.45;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+    // Visible focus (WCAG 2.4.7), after keyboard use.
+    Rectangle {
+        x: 2px;
+        y: 2px;
+        width: parent.width - 4px;
+        height: parent.height - 4px;
+        border-width: fs.has-focus && AccessFocus.show ? 2px : 0px;
+        border-color: checked ? Palette.accent-foreground : Palette.accent-background;
+        border-radius: 4px;
+    }
+}
+
+export component AccessSegmented inherits Rectangle {
+    // What the choice is about, e.g. "Sound": the group's name.
+    in property <string> label;
+    in property <[string]> options;
+    // Options that cannot be chosen now (true = not available); may be
+    // shorter than `options`.
+    in property <[bool]> unavailable;
+    in-out property <int> current: 0;
+    // The user chose another option.
+    callback selected(int);
+
+    property <int> focus-tick;
+
+    pure function ok(i: int) -> bool {
+        i >= 0 && i < options.length && !(i < unavailable.length && unavailable[i])
+    }
+    // The next available option from `i` in direction `d`, round (looks up
+    // to 8 on).
+    pure function next(i: int, d: int) -> int {
+        ok(mod(i + d + options.length, options.length)) ? mod(i + d + options.length, options.length)
+            : ok(mod(i + 2 * d + 2 * options.length, options.length)) ? mod(i + 2 * d + 2 * options.length, options.length)
+            : ok(mod(i + 3 * d + 3 * options.length, options.length)) ? mod(i + 3 * d + 3 * options.length, options.length)
+            : ok(mod(i + 4 * d + 4 * options.length, options.length)) ? mod(i + 4 * d + 4 * options.length, options.length)
+            : i
+    }
+    function pick(i: int) {
+        if (!ok(i) || i == current) { return; }
+        current = i;
+        selected(i);
+    }
+    function move(d: int) {
+        let to = d <= -1000 ? (ok(0) ? 0 : next(0, 1))
+            : d >= 1000 ? (ok(options.length - 1) ? options.length - 1 : next(options.length - 1, -1))
+            : next(current, d);
+        pick(to);
+        focus-tick += 1;
+    }
+
+    accessible-role: radio-group;
+    accessible-label: label;
+
+    HorizontalLayout {
+        for o[i] in options : Segment {
+            text: o;
+            index: i;
+            count: options.length;
+            checked: i == current;
+            enabled: ok(i);
+            first: i == 0;
+            last: i == options.length - 1;
+            focus-tick: focus-tick;
+            wants-focus: i == current;
+            choose => { pick(i); }
+            move(d) => { root.move(d); }
+        }
+    }
+}
