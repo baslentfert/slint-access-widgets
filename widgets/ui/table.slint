@@ -895,6 +895,7 @@ component ColumnMenu inherits Rectangle {
                 index: i;
                 count: count;
                 current: i == current;
+                open: shown;
                 focus-tick: focus-tick;
                 chosen => { close(); activated(i); }
                 move(d) => { root.move(d); }
@@ -907,6 +908,7 @@ component ColumnMenu inherits Rectangle {
                 index: 7 + c;
                 count: count;
                 current: 7 + c == current;
+                open: shown;
                 focus-tick: focus-tick;
                 chosen => { close(); activated(7 + c); }
                 move(d) => { root.move(d); }

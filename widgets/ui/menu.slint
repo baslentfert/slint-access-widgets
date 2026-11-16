@@ -28,6 +28,8 @@ export component AccessMenuEntry inherits Rectangle {
     in property <int> index;
     in property <int> count;
     in property <bool> current;
+    // The menu is open (a closed menu never takes the focus).
+    in property <bool> open: true;
     in property <int> focus-tick;
     callback chosen();
     callback move(int);
@@ -49,9 +51,8 @@ export component AccessMenuEntry inherits Rectangle {
     accessible-item-selected: current;
     accessible-action-default => { if (item.enabled) { chosen(); } }
 
-    changed focus-tick => { if (current) { fs.focus(); } }
-    changed current => { if (current) { fs.focus(); } }
-    init => { if (current) { fs.focus(); } }
+    changed focus-tick => { if (current && open) { fs.focus(); } }
+    changed current => { if (current && open) { fs.focus(); } }
 
     TouchArea {
         enabled: item.enabled;
@@ -212,6 +213,7 @@ export component AccessMenu inherits Rectangle {
                 index: i;
                 count: items.length;
                 current: i == current;
+                open: shown;
                 focus-tick: focus-tick;
                 chosen => {
                     close();
