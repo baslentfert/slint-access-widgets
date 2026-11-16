@@ -116,7 +116,8 @@ export component AccessAutocomplete inherits Rectangle {
     public function focus-field() { field.focus(); }
     out property <bool> is-open: open;
 
-    property <bool> open;
+    // Follows the popup, also when a click elsewhere closed it.
+    property <bool> open: popup.is-open;
     property <int> current: -1;
     property <int> focus-tick;
     property <bool> just-chose;
@@ -126,7 +127,6 @@ export component AccessAutocomplete inherits Rectangle {
 
     function show-list() {
         if (!open) {
-            open = true;
             popup.show();
             // Opening a popup moves the focus into it; the typing goes on
             // in the field (Down goes into the list).
@@ -135,7 +135,6 @@ export component AccessAutocomplete inherits Rectangle {
     }
     function hide-list() {
         if (open) {
-            open = false;
             popup.close();
         }
         current = -1;

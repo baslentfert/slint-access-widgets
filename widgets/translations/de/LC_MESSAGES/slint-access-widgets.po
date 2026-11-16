@@ -28,6 +28,11 @@ msgid_plural "{n} suggestions"
 msgstr[0] "{n} Vorschlag"
 msgstr[1] "{n} Vorschläge"
 
+#: ui/info.slint:16
+msgctxt "access-widgets"
+msgid "More about {}"
+msgstr "Mehr zu {}"
+
 #: ui/table.slint:62
 msgctxt "access-widgets"
 msgid "sorted ascending"
@@ -130,22 +135,27 @@ msgstr "Spaltenmenü"
 
 #: ui/table.slint:89
 msgctxt "access-widgets"
+msgid "Could not copy"
+msgstr "Kopieren fehlgeschlagen"
+
+#: ui/table.slint:90
+msgctxt "access-widgets"
 msgid "hidden"
 msgstr "ausgeblendet"
 
-#: ui/table.slint:90
+#: ui/table.slint:91
 msgctxt "access-widgets"
 msgid "shown"
 msgstr "eingeblendet"
 
-#: ui/table.slint:92
+#: ui/table.slint:93
 msgctxt "access-widgets"
 msgid "{n} row copied"
 msgid_plural "{n} rows copied"
 msgstr[0] "{n} Zeile kopiert"
 msgstr[1] "{n} Zeilen kopiert"
 
-#: ui/table.slint:95
+#: ui/table.slint:96
 msgctxt "access-widgets"
 msgid "{} of {} shown"
 msgstr "{} von {} angezeigt"

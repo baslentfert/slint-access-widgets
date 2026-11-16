@@ -52,8 +52,8 @@ A drop-in for `StandardTableView` (same `columns` and `rows`):
   "3 selected" is announced. `Selection` (Rust) keeps the **same items
   selected after sorting or filtering**.
 - **Ctrl+C copies** the selected rows as tab-separated text (pastes as
-  columns into a spreadsheet); "3 rows copied" is announced (feature
-  `clipboard`).
+  columns into a spreadsheet); "3 rows copied" is announced, and "Could not
+  copy" when the clipboard refuses (feature `clipboard`).
 - **Cut-off text gets a tooltip** with all of it, for the mouse and for the
   keyboard; it stays while you hover it, Escape closes it (WCAG 1.4.13).
 - **Focus ring only when you use the keyboard** (like `:focus-visible`);
@@ -81,6 +81,16 @@ computer; `loading` shows "Searching…".
 - Enter or a click chooses; Escape closes the list, a second Escape empties
   the field; typing while in the list goes on in the field.
 - `suggestions-only` allows only a suggestion to be chosen.
+
+## AccessInfo
+
+An ⓘ button with an explanation (a "toggletip"): opens on click, Enter or
+Space (not only on hover), so it works with a keyboard, a touch screen and a
+screen reader. The explanation is announced when it opens and stays the
+button's description while open; the button reads as "More about …",
+expanded or collapsed. WCAG 1.4.13: Escape or a click elsewhere closes it,
+it stays while hovered, and until closed. (On Linux "expanded" doesn't
+reach screen readers yet: AccessKit #824.)
 
 ## AccessMenu
 
@@ -117,6 +127,7 @@ Examples (`cargo run` in each):
 | `examples/transfer` | a list with tick boxes and progress per row, pause and cancel |
 | `examples/remote` | lazy loading: 100,000 files on a slow server, searched and sorted there |
 | `examples/autocomplete` | typing with suggestions that arrive from a "server" |
+| `examples/controls` | smaller controls: the ⓘ button |
 
 ## Translations
 

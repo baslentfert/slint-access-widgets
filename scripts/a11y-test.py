@@ -36,6 +36,14 @@ def describe(a):
         d += f' #{attrs["posinset"]}'
     if st.contains(pyatspi.STATE_SELECTED):
         d += " selected"
+    if st.contains(pyatspi.STATE_EXPANDABLE):
+        d += " expanded" if st.contains(pyatspi.STATE_EXPANDED) else " collapsed"
+    # (AccessKit doesn't pass "expanded" to AT-SPI yet: AccessKit #824.
+    # The description shows what a screen reader reads with the name.)
+    if a.description:
+        d += f' desc="{a.description[:30]}"'
+    else:
+        d += " no-desc"
     return d
 
 
@@ -192,6 +200,22 @@ SCENARIOS = {
         ("text", "alv", None),
         ("wait", 'entry "Computer"', "No suggestions"),
     ],
+    "controls": [
+        ("Tab", 'check box "Share the clipboard"', None),
+        ("Tab", 'button "More about Share the clipboard" no-desc', None),
+        # Opens; the explanation is announced; the focus stays on the button.
+        ("Return", 'button "More about Share the clipboard" desc="What you copy', "What you copy on one computer"),
+        ("Escape", 'button "More about Share the clipboard" no-desc', None),
+        ("space", 'button "More about Share the clipboard" desc="What you copy', "What you copy"),
+        ("space", 'button "More about Share the clipboard" no-desc', None),
+        ("Tab", 'check box "Send sound"', None),
+        ("Tab", 'button "More about Send sound" no-desc', None),
+        ("Return", 'button "More about Send sound" desc="The sound', "The sound of this computer"),
+        # Tab away: the explanation may stay (WCAG 1.4.13: until dismissed).
+        ("Tab", 'button "Save"', None),
+        ("shift+Tab", 'button "More about Send sound" desc="The sound', None),
+        ("Escape", 'button "More about Send sound" no-desc', None),
+    ],
     "remote": [
         ("Tab", 'entry "Search on the server"', None),
         ("Tab", 'button "Name" #1', None),
@@ -263,9 +287,24 @@ def run(name):
                 pump(1.0)
             else:
                 subprocess.run(["xdotool", "key", "--clearmodifiers", key], check=True)
+                t0 = time.time()
                 pump(0.5)
+                # The clipboard can take a moment on X11; give an
+                # announcement up to 3 s (and say how long it took).
+                while want_heard and not any(want_heard in h for h in heard) and time.time() - t0 < 3:
+                    pump(0.1)
+                if want_heard and time.time() - t0 > 0.7:
+                    print(f"     (heard after {time.time() - t0:.1f} s)")
             f = focused(app)
             got = describe(f) if f else "nothing"
+            # Slow to react? Wait up to 2 s more, and say how long it took.
+            t1 = time.time()
+            while want_focus not in got and time.time() - t1 < 2:
+                pump(0.1)
+                f = focused(app)
+                got = describe(f) if f else "nothing"
+            if want_focus in got and time.time() - t1 > 0.15:
+                print(f"     (focus after {0.5 + time.time() - t1:.1f} s)")
             ok = want_focus in got and (want_heard is None or any(want_heard in h for h in heard))
             print(f"{'ok  ' if ok else 'FAIL'} {key:<10} {got}" + (f"   heard {heard}" if heard else ""))
             if not ok:

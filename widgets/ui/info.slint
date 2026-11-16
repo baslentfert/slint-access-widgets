@@ -1,0 +1,131 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// An ⓘ button that shows an explanation (a "toggletip"): opens on click,
+// Enter or Space, not only on hover, so it works with a keyboard, a touch
+// screen and a screen reader. When it opens, the explanation is announced
+// (a status message) while the focus stays on the button; the button says
+// whether it is expanded. WCAG 1.4.13: Escape or a click elsewhere closes
+// it, the mouse can move onto it, and it stays until closed.
+
+import { Palette } from "std-widgets.slint";
+import { AccessFocus } from "focus.slint";
+import { AccessAnnouncer } from "cells.slint";
+
+export global AccessInfoTexts {
+    pure public function more-about(topic: string) -> string {
+        @tr("access-widgets" => "More about {}", topic)
+    }
+}
+
+export component AccessInfo inherits Rectangle {
+    // What it is about, e.g. "Clipboard": the button is called "More about
+    // Clipboard".
+    in property <string> about;
+    // The explanation.
+    in property <string> text;
+    out property <bool> is-open: open;
+
+    // Follows the popup, also when a click elsewhere closed it.
+    property <bool> open: bubble.is-open;
+
+    public function show() {
+        if (open) { return; }
+        bubble.show();
+        // A popup takes the focus; it belongs on the button.
+        fs.focus();
+        news.say(text);
+    }
+    public function close() {
+        if (!open) { return; }
+        bubble.close();
+    }
+
+    // 24 × 24 px at least (WCAG 2.5.8).
+    width: 24px;
+    height: 24px;
+
+    accessible-role: button;
+    accessible-label: AccessInfoTexts.more-about(about);
+    accessible-expandable: true;
+    accessible-expanded: open;
+    // While open, the explanation is also its description: read again when
+    // the button gets focus.
+    accessible-description: open ? text : "";
+    accessible-action-default => { if (open) { close(); } else { show(); } }
+
+    fs := FocusScope {
+        capture-key-pressed(e) => {
+            AccessFocus.keyboard = true;
+            reject
+        }
+        focus-gained(reason) => {
+            if (reason == FocusReason.tab-navigation) { AccessFocus.keyboard = true; }
+        }
+        key-pressed(e) => {
+            if (e.text == Key.Return || e.text == " ") {
+                if (open) { close(); } else { show(); }
+                return accept;
+            }
+            if (e.text == Key.Escape && open) { close(); return accept; }
+            reject
+        }
+    }
+    touch := TouchArea {
+        clicked => {
+            AccessFocus.keyboard = false;
+            fs.focus();
+            if (open) { close(); } else { show(); }
+        }
+    }
+    Rectangle {
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        border-width: 1.5px;
+        border-color: open || touch.has-hover ? Palette.accent-background : Palette.foreground;
+        background: open ? Palette.accent-background : transparent;
+        Text {
+            text: "i";
+            font-weight: 700;
+            font-size: 13px;
+            color: open ? Palette.accent-foreground : Palette.foreground;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+    // Visible focus (WCAG 2.4.7), after keyboard use.
+    Rectangle {
+        border-width: fs.has-focus && AccessFocus.show ? 2px : 0px;
+        border-color: Palette.accent-background;
+        border-radius: 12px;
+    }
+
+    bubble := PopupWindow {
+        x: 0;
+        y: root.height + 4px;
+        width: min(320px, max(160px, label.preferred-width + 24px));
+        close-policy: close-on-click-outside;
+        Rectangle {
+            background: Palette.background;
+            border-width: 1px;
+            border-color: Palette.border;
+            border-radius: 6px;
+            drop-shadow-blur: 8px;
+            drop-shadow-color: #0004;
+            // Read through the announcement and the button's description;
+            // no second copy for screen readers here.
+            accessible-role: none;
+            VerticalLayout {
+                padding: 12px;
+                label := Text {
+                    text: root.text;
+                    wrap: word-wrap;
+                    color: Palette.foreground;
+                    accessible-role: none;
+                }
+            }
+        }
+    }
+    news := AccessAnnouncer { }
+}

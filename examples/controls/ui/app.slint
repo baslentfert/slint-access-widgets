@@ -1,0 +1,32 @@
+// Smaller controls: the ⓘ button (more to come).
+
+import { AccessInfo } from "@access-widgets";
+import { CheckBox, Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Controls";
+    preferred-width: 520px;
+    preferred-height: 320px;
+
+    VerticalBox {
+        alignment: start;
+        Text { text: "Settings"; font-size: 18px; font-weight: 700; }
+        HorizontalBox {
+            padding: 0;
+            CheckBox { text: "Share the clipboard"; checked: true; }
+            AccessInfo {
+                about: "Share the clipboard";
+                text: "What you copy on one computer can be pasted on the other, in both directions. Turn it off when you work with passwords or other secrets.";
+            }
+        }
+        HorizontalBox {
+            padding: 0;
+            CheckBox { text: "Send sound"; }
+            AccessInfo {
+                about: "Send sound";
+                text: "The sound of this computer plays on the other one. It uses more of the connection.";
+            }
+        }
+        Button { text: "Save"; }
+    }
+}

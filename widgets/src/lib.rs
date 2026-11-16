@@ -77,7 +77,8 @@ where
 }
 
 /// Ctrl+C in an `AccessTable`: copies the selected rows (or the current
-/// row) to the clipboard and returns how many, for the announcement.
+/// row) to the clipboard and returns how many, for the announcement; -1
+/// when the clipboard refused (announced as "Could not copy").
 ///
 /// ```ignore
 /// let (rows, sel) = (model.clone(), selection.clone());
@@ -96,7 +97,7 @@ where
     }
     match copy_text(&rows_as_text(rows, &which, None)) {
         Ok(()) => which.len() as i32,
-        Err(_) => 0,
+        Err(_) => -1,
     }
 }
 
@@ -108,13 +109,25 @@ pub fn copy_text(text: &str) -> Result<(), String> {
         // On Linux the text stays on the clipboard only while this lives.
         static CLIPBOARD: std::cell::RefCell<Option<arboard::Clipboard>> = const { std::cell::RefCell::new(None) };
     }
-    CLIPBOARD.with(|c| {
-        let mut c = c.borrow_mut();
-        if c.is_none() {
-            *c = Some(arboard::Clipboard::new().map_err(|e| e.to_string())?);
+    // Another program can hold the clipboard for a moment: try a few times.
+    let mut fout = String::new();
+    for poging in 0..5 {
+        if poging > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(40));
         }
-        c.as_mut().unwrap().set_text(text).map_err(|e| e.to_string())
-    })
+        let r = CLIPBOARD.with(|c| {
+            let mut c = c.borrow_mut();
+            if c.is_none() {
+                *c = Some(arboard::Clipboard::new().map_err(|e| e.to_string())?);
+            }
+            c.as_mut().unwrap().set_text(text).map_err(|e| e.to_string())
+        });
+        match r {
+            Ok(()) => return Ok(()),
+            Err(e) => fout = e,
+        }
+    }
+    Err(fout)
 }
 
 /// The selection of an `AccessTable` with `multi-select: true`, as in File
