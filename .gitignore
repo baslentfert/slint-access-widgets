@@ -1,4 +1,3 @@
 /target
 examples/*/target
 .claude/
-scripts/msaa-probe.dll
