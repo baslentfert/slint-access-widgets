@@ -1,18 +1,27 @@
 // Smaller controls: the ⓘ button (more to come).
 
-import { AccessInfo } from "@access-widgets";
+import { AccessInfo, AccessWindow } from "@access-widgets";
 import { CheckBox, Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
     title: "Controls";
     preferred-width: 520px;
     preferred-height: 320px;
+    // Tell the widgets how big the window is (for placing popups).
+    init => {
+        AccessWindow.width = self.width;
+        AccessWindow.height = self.height;
+    }
+    changed width => { AccessWindow.width = self.width; }
+    changed height => { AccessWindow.height = self.height; }
 
     VerticalBox {
         alignment: start;
         Text { text: "Settings"; font-size: 18px; font-weight: 700; }
         HorizontalBox {
             padding: 0;
+            // The ⓘ right after its text, not at the far edge.
+            alignment: start;
             CheckBox { text: "Share the clipboard"; checked: true; }
             AccessInfo {
                 about: "Share the clipboard";
@@ -21,6 +30,7 @@ export component AppWindow inherits Window {
         }
         HorizontalBox {
             padding: 0;
+            alignment: start;
             CheckBox { text: "Send sound"; }
             AccessInfo {
                 about: "Send sound";

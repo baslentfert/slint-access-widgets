@@ -92,6 +92,18 @@ expanded or collapsed. WCAG 1.4.13: Escape or a click elsewhere closes it,
 it stays while hovered, and until closed. (On Linux "expanded" doesn't
 reach screen readers yet: AccessKit #824.)
 
+Give the widgets the window size, so the explanation opens under the ⓘ (or
+above it near the bottom), 8 px from the window edges, with a pointer to the
+ⓘ; without it Slint only keeps it inside the window:
+
+```slint
+import { AccessWindow } from "@access-widgets";
+// in your window:
+init => { AccessWindow.width = self.width; AccessWindow.height = self.height; }
+changed width => { AccessWindow.width = self.width; }
+changed height => { AccessWindow.height = self.height; }
+```
+
 ## AccessMenu
 
 A menu that screen readers can follow (Slint 1.18's own context menu shows

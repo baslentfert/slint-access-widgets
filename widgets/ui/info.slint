@@ -11,6 +11,16 @@ import { Palette } from "std-widgets.slint";
 import { AccessFocus } from "focus.slint";
 import { AccessAnnouncer } from "cells.slint";
 
+// The size of the window, for placing popups well (the ⓘ explanation).
+// Set it from your window:
+//     init => { AccessWindow.width = self.width; AccessWindow.height = self.height; }
+//     changed width => { AccessWindow.width = self.width; }
+//     changed height => { AccessWindow.height = self.height; }
+export global AccessWindow {
+    in-out property <length> width;
+    in-out property <length> height;
+}
+
 export global AccessInfoTexts {
     pure public function more-about(topic: string) -> string {
         @tr("access-widgets" => "More about {}", topic)
@@ -101,12 +111,39 @@ export component AccessInfo inherits Rectangle {
         border-radius: 12px;
     }
 
+    // Where the bubble goes. With the window size known (`AccessWindow`):
+    // under the ⓘ (above it near the bottom), starting at the ⓘ when there
+    // is room on the right, else ending at it, 8 px from the window edges,
+    // with a pointer to the ⓘ. Without it, Slint keeps the popup inside the
+    // window itself (it may then shift away from the ⓘ).
+    property <length> marge: 8px;
+    // At most 320 px, and never wider than the window allows.
+    property <length> bw: min(weet ? AccessWindow.width - 2 * marge : 320px, min(320px, max(160px, breed.preferred-width + 24px)));
+    property <length> bh: hoog.preferred-height + 24px + pijl;
+    // The text measured outside the popup (Slint can't look inside it).
+    breed := Text { visible: false; text: root.text; accessible-role: none; }
+    hoog := Text { visible: false; width: bw - 24px; text: root.text; wrap: word-wrap; accessible-role: none; }
+    property <length> pijl: 8px;
+    property <bool> weet: AccessWindow.width > 0;
+    property <length> ax: self.absolute-position.x;
+    property <length> ay: self.absolute-position.y;
+    property <length> bx: !weet ? 0
+        : ax + bw + marge <= AccessWindow.width ? 0
+        : ax + root.width - bw >= marge ? root.width - bw
+        : marge - ax;
+    property <bool> boven: weet && ay + root.height + bh + marge > AccessWindow.height && ay - bh >= marge;
+    // The pointer: under the middle of the ⓘ, within the bubble's corners.
+    property <length> px: max(10px, min(bw - 26px, root.width / 2 - bx - 8px));
+
     bubble := PopupWindow {
-        x: 0;
-        y: root.height + 4px;
-        width: min(320px, max(160px, label.preferred-width + 24px));
+        x: bx;
+        y: boven ? -bh - 2px : root.height + 2px;
+        width: bw;
+        height: bh;
         close-policy: close-on-click-outside;
         Rectangle {
+            y: boven ? 0 : pijl;
+            height: parent.height - pijl;
             background: Palette.background;
             border-width: 1px;
             border-color: Palette.border;
@@ -125,6 +162,21 @@ export component AccessInfo inherits Rectangle {
                     accessible-role: none;
                 }
             }
+        }
+        // The pointer to the ⓘ (only when we know where things are).
+        Path {
+            visible: weet;
+            x: px;
+            y: boven ? parent.height - pijl - 1px : 1px;
+            width: 16px;
+            height: pijl;
+            viewbox-width: 16;
+            viewbox-height: 8;
+            commands: boven ? "M 0 0 L 8 8 L 16 0 Z" : "M 0 8 L 8 0 L 16 8 Z";
+            fill: Palette.background;
+            stroke: Palette.border;
+            stroke-width: 1px;
+            accessible-role: none;
         }
     }
     news := AccessAnnouncer { }
