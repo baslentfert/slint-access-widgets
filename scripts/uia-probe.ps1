@@ -11,6 +11,8 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.For
 # as NVDA does (the .NET UI Automation client here shows them as empty
 # panes): `cargo build --release -p slint-a11y-check` builds msaa-menu.exe.
 $msaaMenu = Join-Path $PSScriptRoot "..\target\release\msaa-menu.exe"
+# The focus through the UIA COM interface (full description included).
+$uiaFocus = Join-Path $PSScriptRoot "..\target\release\uia-focus.exe"
 $A = [System.Windows.Automation.AutomationElement]
 $log = New-Object System.Collections.Generic.List[string]
 
@@ -70,6 +72,7 @@ foreach ($key in $list) {
     $f = $A::FocusedElement
     $log.Add("after '$key': " + (Line $f 0))
     # An open native menu: what NVDA reads from it.
+    if (Test-Path $uiaFocus) { & $uiaFocus | ForEach-Object { $log.Add($_) } }
     if (Test-Path $msaaMenu) {
         $menu = & $msaaMenu
         if ($menu) { $menu | ForEach-Object { $log.Add($_) } }
