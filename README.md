@@ -67,6 +67,21 @@ blocks `AccessTableView`, `AccessRow` and `AccessTableHeader`, with cells
 that never take focus (`AccessCheckCell`, `AccessProgressCell`,
 `AccessTextCell`); see `examples/transfer`.
 
+## AccessAutocomplete
+
+A text field with suggestions underneath (the editable combobox of the
+WAI-ARIA Authoring Practices). Your app gives the suggestions for what was
+typed (`edited` → `suggestions`), from a list, a database or another
+computer; `loading` shows "Searching…".
+
+- After a short pause "3 suggestions" is announced (not on every key).
+- Down (or Alt+Down without typing) goes into the list; every suggestion has
+  focus of its own and reads "test-vm-02, 2 of 3"; Up from the first goes
+  back to the field.
+- Enter or a click chooses; Escape closes the list, a second Escape empties
+  the field; typing while in the list goes on in the field.
+- `suggestions-only` allows only a suggestion to be chosen.
+
 ## AccessMenu
 
 A menu that screen readers can follow (Slint 1.18's own context menu shows
@@ -101,6 +116,7 @@ Examples (`cargo run` in each):
 | `examples/gallery` | everything: sort, filter, select, copy, density (`-- 200000` for a long table, `--lang nl` in Dutch) |
 | `examples/transfer` | a list with tick boxes and progress per row, pause and cancel |
 | `examples/remote` | lazy loading: 100,000 files on a slow server, searched and sorted there |
+| `examples/autocomplete` | typing with suggestions that arrive from a "server" |
 
 ## Translations
 

@@ -160,6 +160,38 @@ SCENARIOS = {
         ("shift+Tab", "list item", None),
         ("Up", "list item", None),
     ],
+    "autocomplete": [
+        ("Tab", 'entry "Computer"', None),
+        ("t", 'entry "Computer"', None),
+        ("e", 'entry "Computer"', None),
+        ("s", 'entry "Computer"', None),
+        ("t", 'entry "Computer"', None),
+        ("wait", 'entry "Computer"', "3 suggestions"),
+        ("Down", 'list item "test-vm-01" #1', None),
+        ("Down", 'list item "test-vm-02" #2', None),
+        ("End", 'list item "test-vm-03" #3', None),
+        ("Home", 'list item "test-vm-01" #1', None),
+        ("Up", 'entry "Computer"', None),
+        ("text", "test", None),
+        ("Down", 'list item "test-vm-01" #1', None),
+        ("Down", 'list item "test-vm-02" #2', None),
+        ("Return", 'entry "Computer"', None),
+        ("text", "test-vm-02", None),
+        # Escape empties the field (the list is closed already).
+        ("Escape", 'entry "Computer"', None),
+        ("text", "", None),
+        ("alt+Down", 'entry "Computer"', None),
+        ("wait", 'entry "Computer"', "14 suggestions"),
+        ("Escape", 'entry "Computer"', None),
+        ("a", 'entry "Computer"', None),
+        ("l", 'entry "Computer"', None),
+        ("wait", 'entry "Computer"', "1 suggestion"),
+        ("Down", 'list item "alan-desktop" #1', None),
+        # Typing in the list goes on in the field.
+        ("v", 'entry "Computer"', None),
+        ("text", "alv", None),
+        ("wait", 'entry "Computer"', "No suggestions"),
+    ],
     "remote": [
         ("Tab", 'entry "Search on the server"', None),
         ("Tab", 'button "Name" #1', None),
@@ -212,6 +244,19 @@ def run(name):
                 ok = want_focus in clip and clip.count("\n") == int(want_heard)
                 print(f"{'ok  ' if ok else 'FAIL'} clipboard  {clip!r}")
                 if not ok:
+                    return False
+                continue
+            if key == "text":
+                # The text in the focused field must be exactly `want_focus`.
+                f = focused(app)
+                try:
+                    got = f.queryText().getText(0, -1)
+                except Exception as e:
+                    got = f"(no text: {e})"
+                ok = got == want_focus
+                print(f"{'ok  ' if ok else 'FAIL'} text       {got!r}")
+                if not ok:
+                    print(f"     wanted {want_focus!r}")
                     return False
                 continue
             if key == "wait":

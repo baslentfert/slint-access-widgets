@@ -1,0 +1,30 @@
+// Typing with suggestions underneath. The suggestions come from Rust
+// (here a list of computer names, with a small delay as if they came from
+// a server, so "Searching…" shows).
+
+import { AccessAutocomplete } from "@access-widgets";
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Autocomplete";
+    preferred-width: 460px;
+    preferred-height: 360px;
+    in property <[string]> suggestions;
+    in property <bool> loading;
+    in-out property <string> chosen;
+    callback edited(string);
+
+    VerticalBox {
+        alignment: start;
+        Text { text: "Connect to a computer: type a few letters, use the arrows, press Enter."; wrap: word-wrap; }
+        field := AccessAutocomplete {
+            label: "Computer";
+            suggestions: root.suggestions;
+            loading: root.loading;
+            edited(t) => { root.edited(t); }
+            accepted(t) => { chosen = t; }
+        }
+        Button { text: "Connect"; }
+        Text { text: "Chosen: " + chosen; }
+    }
+}

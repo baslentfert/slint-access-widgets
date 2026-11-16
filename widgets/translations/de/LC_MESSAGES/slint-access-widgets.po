@@ -6,6 +6,28 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: po-bundle\n"
 
+#: ui/autocomplete.slint:21
+msgctxt "access-widgets"
+msgid "Suggestions"
+msgstr "Vorschläge"
+
+#: ui/autocomplete.slint:22
+msgctxt "access-widgets"
+msgid "Searching…"
+msgstr "Suche…"
+
+#: ui/autocomplete.slint:23
+msgctxt "access-widgets"
+msgid "No suggestions"
+msgstr "Keine Vorschläge"
+
+#: ui/autocomplete.slint:25
+msgctxt "access-widgets"
+msgid "{n} suggestion"
+msgid_plural "{n} suggestions"
+msgstr[0] "{n} Vorschlag"
+msgstr[1] "{n} Vorschläge"
+
 #: ui/table.slint:62
 msgctxt "access-widgets"
 msgid "sorted ascending"

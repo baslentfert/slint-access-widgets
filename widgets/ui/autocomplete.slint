@@ -1,0 +1,282 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// A text field with suggestions underneath (an editable combobox with list
+// autocomplete, WAI-ARIA Authoring Practices). Your app gives the
+// suggestions for what was typed (`edited` → `suggestions`), so they can
+// come from anywhere: a list, a database, another computer.
+//
+// Keys, as screen-reader users expect them:
+// - typing: the list opens; after a short pause "5 suggestions" is announced;
+// - Down (or Alt+Down without typing): into the list; every suggestion has
+//   focus of its own and reads "report.pdf, 2 of 5"; Up from the first one
+//   goes back to the field;
+// - Enter or a click: choose; Escape: close the list, a second Escape
+//   empties the field; typing while in the list goes on in the field.
+
+import { LineEdit, Palette } from "std-widgets.slint";
+import { AccessFocus } from "focus.slint";
+import { AccessAnnouncer } from "cells.slint";
+
+export global AccessAutocompleteTexts {
+    in-out property <string> suggestions: @tr("access-widgets" => "Suggestions");
+    in-out property <string> searching: @tr("access-widgets" => "Searching…");
+    in-out property <string> no-suggestions: @tr("access-widgets" => "No suggestions");
+    pure public function count(n: int) -> string {
+        @tr("access-widgets" => "{n} suggestion" | "{n} suggestions" % n)
+    }
+}
+
+component Suggestion inherits Rectangle {
+    in property <string> text;
+    in property <int> index;
+    in property <int> count;
+    in property <bool> current;
+    in property <int> focus-tick;
+    in property <bool> open;
+    callback chosen();
+    callback move(int);
+    callback typed(string);
+    callback back();
+    callback hovered();
+
+    min-height: max(28px, t.preferred-height + 10px);
+    background: current ? Palette.selection-background : touch.has-hover ? Palette.alternate-background : transparent;
+
+    accessible-role: list-item;
+    accessible-label: text;
+    accessible-item-index: index;
+    accessible-item-count: count;
+    accessible-item-selectable: true;
+    accessible-item-selected: current;
+    accessible-action-default => { chosen(); }
+
+    changed focus-tick => { if (current && open) { fs.focus(); } }
+
+    touch := TouchArea {
+        moved => { hovered(); }
+        clicked => { chosen(); }
+    }
+    fs := FocusScope {
+        focus-on-click: false;
+        focus-on-tab-navigation: false;
+        capture-key-pressed(e) => {
+            AccessFocus.keyboard = true;
+            reject
+        }
+        key-pressed(e) => {
+            if (e.text == Key.DownArrow) { move(1); return accept; }
+            if (e.text == Key.UpArrow) { move(-1); return accept; }
+            if (e.text == Key.Home) { move(-1000); return accept; }
+            if (e.text == Key.End) { move(1000); return accept; }
+            if (e.text == Key.Return) { chosen(); return accept; }
+            if (e.text == Key.Escape || e.text == Key.Tab || e.text == Key.Backtab) { back(); return accept; }
+            // Typing goes on in the field.
+            if (!e.modifiers.control && !e.modifiers.alt && e.text.character-count == 1
+                && (e.text.to-uppercase() != e.text.to-lowercase() || e.text.is-float() || e.text == " " || e.text == "." || e.text == "-")) {
+                typed(e.text);
+                return accept;
+            }
+            if (e.text == Key.Backspace) { typed(""); return accept; }
+            reject
+        }
+    }
+    t := Text {
+        x: 10px;
+        width: parent.width - 20px;
+        text: root.text;
+        color: current ? Palette.selection-foreground : Palette.foreground;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    // Visible focus (WCAG 2.4.7), only after keyboard use.
+    Rectangle {
+        border-width: fs.has-focus && AccessFocus.show ? 2px : 0px;
+        border-color: current ? Palette.selection-foreground : Palette.accent-background;
+        border-radius: 2px;
+    }
+}
+
+export component AccessAutocomplete inherits Rectangle {
+    // What the field is for, e.g. "Computer". Read by screen readers and
+    // shown as placeholder.
+    in property <string> label;
+    in-out property <string> text <=> field.text;
+    // The suggestions for what was typed (set them in `edited`).
+    in property <[string]> suggestions;
+    // True while your app looks suggestions up: "Searching…".
+    in property <bool> loading: false;
+    // Only a suggestion may be chosen (Enter on other text does nothing).
+    in property <bool> suggestions-only: false;
+    // The text changed: give new `suggestions`.
+    callback edited(string);
+    // A value was chosen (a suggestion, or with Enter the typed text).
+    callback accepted(string);
+
+    public function focus-field() { field.focus(); }
+    out property <bool> is-open: open;
+
+    property <bool> open;
+    property <int> current: -1;
+    property <int> focus-tick;
+    property <bool> just-chose;
+
+    min-height: field.min-height;
+    preferred-width: 300px;
+
+    function show-list() {
+        if (!open) {
+            open = true;
+            popup.show();
+            // Opening a popup moves the focus into it; the typing goes on
+            // in the field (Down goes into the list).
+            field.focus();
+        }
+    }
+    function hide-list() {
+        if (open) {
+            open = false;
+            popup.close();
+        }
+        current = -1;
+    }
+    function choose(i: int) {
+        if (i < 0 || i >= suggestions.length) { return; }
+        just-chose = true;
+        field.text = suggestions[i];
+        hide-list();
+        field.focus();
+        accepted(field.text);
+    }
+    function into-list(i: int) {
+        if (suggestions.length == 0) { return; }
+        current = max(0, min(suggestions.length - 1, i));
+        focus-tick += 1;
+    }
+    function move(d: int) {
+        if (d <= -1000) { into-list(0); return; }
+        if (d >= 1000) { into-list(suggestions.length - 1); return; }
+        if (current + d < 0) {
+            // Up from the first one: back to the field.
+            current = -1;
+            field.focus();
+            return;
+        }
+        into-list(min(suggestions.length - 1, current + d));
+    }
+
+    // "5 suggestions" once the typing stops (WCAG 4.1.3), not on every key.
+    quiet := Timer {
+        interval: 600ms;
+        running: false;
+        triggered => {
+            self.stop();
+            if (open) {
+                news.say(loading ? AccessAutocompleteTexts.searching
+                    : suggestions.length == 0 ? AccessAutocompleteTexts.no-suggestions
+                    : AccessAutocompleteTexts.count(suggestions.length));
+            }
+        }
+    }
+    changed loading => {
+        if (!loading && open) { quiet.stop(); quiet.start(); }
+    }
+
+    field := LineEdit {
+        width: root.width;
+        placeholder-text: label;
+        accessible-label: label;
+        edited(t) => {
+            if (just-chose) { just-chose = false; return; }
+            root.edited(t);
+            if (t == "") { hide-list(); } else { show-list(); }
+            current = -1;
+            if (quiet.running) { quiet.restart(); } else { quiet.start(); }
+        }
+        accepted(t) => {
+            if (suggestions-only) {
+                // Only an exact suggestion counts.
+                if (suggestions.length == 1 && suggestions[0] == t) { choose(0); }
+                return;
+            }
+            hide-list();
+            root.accepted(t);
+        }
+        key-pressed(e) => {
+            AccessFocus.keyboard = true;
+            if (e.text == Key.DownArrow) {
+                if (!open && e.modifiers.alt) { root.edited(self.text); show-list(); return accept; }
+                if (open) { into-list(0); return accept; }
+                if (e.modifiers.alt || self.text != "") { root.edited(self.text); show-list(); return accept; }
+            }
+            if (e.text == Key.Escape) {
+                if (open) { hide-list(); return accept; }
+                if (self.text != "") {
+                    self.text = "";
+                    root.edited("");
+                    return accept;
+                }
+            }
+            reject
+        }
+    }
+
+    popup := PopupWindow {
+        x: 0;
+        y: field.height + 2px;
+        width: root.width;
+        close-policy: close-on-click-outside;
+        Rectangle {
+            background: Palette.background;
+            border-width: 1px;
+            border-color: Palette.border;
+            border-radius: 4px;
+            drop-shadow-blur: 8px;
+            drop-shadow-color: #0004;
+            accessible-role: AccessibleRole.list;
+            accessible-label: label + ", " + AccessAutocompleteTexts.suggestions;
+            accessible-item-count: suggestions.length;
+            VerticalLayout {
+                padding: 4px;
+                Text {
+                    visible: loading || suggestions.length == 0;
+                    height: self.visible ? max(28px, self.preferred-height + 10px) : 0;
+                    text: loading ? AccessAutocompleteTexts.searching : AccessAutocompleteTexts.no-suggestions;
+                    color: Palette.foreground;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                }
+                for s[i] in suggestions : Suggestion {
+                    text: s;
+                    index: i;
+                    count: suggestions.length;
+                    current: i == current;
+                    focus-tick: focus-tick;
+                    open: open;
+                    chosen => { choose(i); }
+                    move(d) => { root.move(d); }
+                    back => {
+                        current = -1;
+                        field.focus();
+                    }
+                    typed(t) => {
+                        current = -1;
+                        field.focus();
+                        // A character: go on typing in the field (Backspace
+                        // only goes back to the field).
+                        if (t != "") {
+                            field.text += t;
+                            field.set-selection-offsets(1000000, 1000000);
+                            root.edited(field.text);
+                        }
+                    }
+                    hovered => {
+                        current = i;
+                    }
+                }
+            }
+        }
+    }
+
+    news := AccessAnnouncer { }
+}

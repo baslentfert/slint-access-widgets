@@ -4,6 +4,28 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: po-bundle\n"
 
+#: ui/autocomplete.slint:21
+msgctxt "access-widgets"
+msgid "Suggestions"
+msgstr ""
+
+#: ui/autocomplete.slint:22
+msgctxt "access-widgets"
+msgid "Searching…"
+msgstr ""
+
+#: ui/autocomplete.slint:23
+msgctxt "access-widgets"
+msgid "No suggestions"
+msgstr ""
+
+#: ui/autocomplete.slint:25
+msgctxt "access-widgets"
+msgid "{n} suggestion"
+msgid_plural "{n} suggestions"
+msgstr[0] ""
+msgstr[1] ""
+
 #: ui/table.slint:62
 msgctxt "access-widgets"
 msgid "sorted ascending"
