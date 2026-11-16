@@ -1,0 +1,16 @@
+[package]
+name = "modifier-probe"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# On its own, outside the workspace.
+[workspace]
+
+[dependencies]
+slint = "1.18"
+slint-access-widgets = { path = "../../widgets" }
+
+[build-dependencies]
+slint-build = "1.18"
+slint-access-widgets = { path = "../../widgets" }

@@ -1,0 +1,54 @@
+// Reproduces a Windows issue: a native context menu opened while Shift is
+// held (Shift+F10) swallows the Shift release, and afterwards Slint still
+// treats Shift as pressed, so Tab moves backwards.
+//
+// 1. Press Tab until the grey box has the focus.
+// 2. Press Shift+F10: a menu opens.
+// 3. Press Escape.
+// 4. Press Tab. Expected: "After" gets the focus. With the issue: "Before".
+
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Modifier probe";
+    preferred-width: 460px;
+    preferred-height: 380px;
+    property <string> focused: before.has-focus ? "Before" : box.has-focus ? "Grey box" : after.has-focus ? "After" : "(nothing)";
+    property <string> last-key;
+
+    area := ContextMenuArea {
+        Menu {
+            MenuItem { title: "One"; }
+            MenuItem { title: "Two"; }
+        }
+    }
+    VerticalBox {
+        Text {
+            text: "1. Tab until the grey box has the focus\n2. Shift+F10 (a menu opens)\n3. Escape\n4. Tab: does \"After\" get the focus?";
+            wrap: word-wrap;
+        }
+        before := Button { text: "Before"; }
+        box := FocusScope {
+            key-pressed(e) => {
+                last-key = (e.modifiers.shift ? "Shift+" : "") + (e.text == Key.Tab ? "Tab" : e.text == Key.Backtab ? "Shift+Tab (Backtab)" : e.text == Key.F10 ? "F10" : "other");
+                if (e.text == Key.F10 && e.modifiers.shift) {
+                    area.show({ x: 20px, y: 160px });
+                    return accept;
+                }
+                reject
+            }
+            Rectangle {
+                height: 40px;
+                background: box.has-focus ? #9fd3ff : #ddd;
+                Text { text: "Grey box"; color: black; }
+            }
+        }
+        after := Button { text: "After"; }
+        Text {
+            text: "Focus now: " + focused;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        Text { text: "Last key in the grey box: " + last-key; }
+    }
+}
