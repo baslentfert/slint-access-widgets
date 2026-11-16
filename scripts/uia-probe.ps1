@@ -9,7 +9,10 @@ param([string]$Title = "Menu probe", [string]$Exe = "", [string]$Out = "uia.log"
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
 # Native Win32 menus (Slint's context menu on Windows) are read through MSAA,
 # as NVDA does; the .NET UI Automation client here shows them as empty panes.
-Add-Type -ReferencedAssemblies Accessibility @"
+# Compiled next to this script: some setups block running DLLs from %TEMP%.
+$msaaDll = Join-Path $PSScriptRoot "msaa-probe.dll"
+if (Test-Path $msaaDll) { Add-Type -Path $msaaDll } else {
+Add-Type -OutputAssembly $msaaDll -ReferencedAssemblies Accessibility @"
 using System;
 using System.Text;
 using System.Runtime.InteropServices;
@@ -40,6 +43,8 @@ public static class Msaa {
     }
 }
 "@
+Add-Type -Path $msaaDll
+}
 $A = [System.Windows.Automation.AutomationElement]
 $log = New-Object System.Collections.Generic.List[string]
 
