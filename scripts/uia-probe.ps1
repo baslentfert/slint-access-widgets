@@ -20,6 +20,7 @@ function Line($e, $level) {
     $extra = ""
     try { $s = $e.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern); $extra += " selected=" + $s.Current.IsSelected } catch {}
     try { $t = $e.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern); $extra += " toggle=" + $t.Current.ToggleState } catch {}
+    try { $v = $e.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern); $extra += " value='" + $v.Current.Value + "'" } catch {}
     if (-not $c.IsEnabled) { $extra += " disabled" }
     if ($c.ClassName) { $extra += " class=" + $c.ClassName }
     ("  " * $level) + "$kind `"$($c.Name)`"$extra"
