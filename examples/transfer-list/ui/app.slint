@@ -1,0 +1,40 @@
+// Choosing columns: from "Available" to "Shown", in order.
+
+import { AccessTransferList } from "@access-widgets";
+import { VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Transfer list";
+    preferred-width: 640px;
+    preferred-height: 420px;
+    in property <[string]> left-items;
+    in property <[string]> right-items;
+    in property <[bool]> left-selected;
+    in property <[bool]> right-selected;
+    callback select(int, int, int) -> int;
+    callback transfer(int, int) -> int;
+    callback landing(int) -> int;
+    callback reorder(int, int) -> int;
+    callback find(int, string, int) -> int;
+
+    VerticalBox {
+        Text {
+            text: "Choose the columns to show. Enter moves the selected items to the other list, Delete moves them back, Alt+Up/Down puts them in order.";
+            wrap: word-wrap;
+        }
+        AccessTransferList {
+            left-label: "Available";
+            right-label: "Shown";
+            left-items: root.left-items;
+            right-items: root.right-items;
+            left-selected: root.left-selected;
+            right-selected: root.right-selected;
+            orderable: true;
+            select(s, r, h) => { root.select(s, r, h) }
+            transfer(s, c) => { root.transfer(s, c) }
+            landing(s) => { root.landing(s) }
+            reorder(r, d) => { root.reorder(r, d) }
+            find(s, p, f) => { root.find(s, p, f) }
+        }
+    }
+}

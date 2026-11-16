@@ -160,6 +160,58 @@ msgctxt "access-widgets"
 msgid "{} of {} shown"
 msgstr "{} von {} angezeigt"
 
+#: ui/transfer.slint:26
+msgctxt "access-widgets"
+msgid "Add"
+msgstr "Hinzufügen"
+
+#: ui/transfer.slint:27
+msgctxt "access-widgets"
+msgid "Remove"
+msgstr "Entfernen"
+
+#: ui/transfer.slint:28
+msgctxt "access-widgets"
+msgid "Select all"
+msgstr "Alle auswählen"
+
+#: ui/transfer.slint:30
+msgctxt "access-widgets"
+msgid "Add to {}"
+msgstr "Zu {} hinzufügen"
+
+#: ui/transfer.slint:33
+msgctxt "access-widgets"
+msgid "Remove from {}"
+msgstr "Aus {} entfernen"
+
+#: ui/transfer.slint:36
+msgctxt "access-widgets"
+msgid "Select all in {}"
+msgstr "Alle in {} auswählen"
+
+#: ui/transfer.slint:39
+msgctxt "access-widgets"
+msgid "{} of {} selected"
+msgstr "{} von {} ausgewählt"
+
+#: ui/transfer.slint:42
+msgctxt "access-widgets"
+msgid "Moved to {}"
+msgstr "Verschoben nach {}"
+
+#: ui/transfer.slint:45
+msgctxt "access-widgets"
+msgid "{n} item"
+msgid_plural "{n} items"
+msgstr[0] "{n} Element"
+msgstr[1] "{n} Elemente"
+
+#: ui/transfer.slint:48
+msgctxt "access-widgets"
+msgid "position {} of {}"
+msgstr "Position {} von {}"
+
 #: ui/tree.slint:32
 msgctxt "access-widgets"
 msgid "expanded"

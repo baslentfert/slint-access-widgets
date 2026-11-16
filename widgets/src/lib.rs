@@ -528,6 +528,136 @@ impl<R: Clone + 'static> TreeRows<R> {
     }
 }
 
+
+/// The two lists of `AccessTransferList`, with their selections.
+///
+/// ```ignore
+/// let t = Rc::new(TransferLists::new(vec!["Name".into(), "Size".into()], vec![]));
+/// window.set_left_items(t.items(TransferLists::LEFT));
+/// window.set_right_items(t.items(TransferLists::RIGHT));
+/// window.set_left_selected(t.selected(TransferLists::LEFT));
+/// window.set_right_selected(t.selected(TransferLists::RIGHT));
+/// let c = t.clone();
+/// window.on_select(move |side, row, how| c.select(side, row, how));
+/// let c = t.clone();
+/// window.on_transfer(move |side, current| c.transfer(side, current));
+/// let c = t.clone();
+/// window.on_landing(move |side| c.landing(side));
+/// ```
+///
+/// Moved items go to the end of the other list and are its selection then
+/// (so you see where they went); the list they came from has nothing
+/// selected.
+pub struct TransferLists {
+    items: [Rc<VecModel<slint::SharedString>>; 2],
+    selection: [Selection; 2],
+    /// Where the focus goes after the last transfer, per list.
+    landing: [Cell<i32>; 2],
+}
+
+impl TransferLists {
+    pub const LEFT: i32 = 0;
+    pub const RIGHT: i32 = 1;
+
+    pub fn new(left: Vec<String>, right: Vec<String>) -> Self {
+        let sel = |n: usize| Selection::new(n);
+        let selection = [sel(left.len()), sel(right.len())];
+        let model = |v: Vec<String>| Rc::new(VecModel::from(v.into_iter().map(Into::into).collect::<Vec<slint::SharedString>>()));
+        Self { items: [model(left), model(right)], selection, landing: Default::default() }
+    }
+
+    fn side(side: i32) -> usize {
+        usize::from(side != Self::LEFT)
+    }
+
+    /// For `left-items` / `right-items`.
+    pub fn items(&self, side: i32) -> ModelRc<slint::SharedString> {
+        self.items[Self::side(side)].clone().into()
+    }
+
+    /// For `left-selected` / `right-selected`.
+    pub fn selected(&self, side: i32) -> ModelRc<bool> {
+        self.selection[Self::side(side)].model()
+    }
+
+    /// The items of one list, in order.
+    pub fn list(&self, side: i32) -> Vec<String> {
+        self.items[Self::side(side)].iter().map(|s| s.to_string()).collect()
+    }
+
+    /// New items for one list (nothing selected there).
+    pub fn set_list(&self, side: i32, items: Vec<String>) {
+        let s = Self::side(side);
+        self.selection[s].reset(items.len());
+        self.items[s].set_vec(items.into_iter().map(Into::into).collect::<Vec<slint::SharedString>>());
+    }
+
+    /// For the `select` callback.
+    pub fn select(&self, side: i32, row: i32, how: i32) -> i32 {
+        self.selection[Self::side(side)].apply(row, how)
+    }
+
+    /// For the `transfer` callback: moves the selected items of `side` (or
+    /// the one at `current` when none is selected) to the end of the other
+    /// list. Returns how many moved.
+    pub fn transfer(&self, side: i32, current: i32) -> i32 {
+        let (from, to) = (Self::side(side), 1 - Self::side(side));
+        let mut rows = self.selection[from].rows();
+        if rows.is_empty() && current >= 0 && (current as usize) < self.items[from].row_count() {
+            rows.push(current as usize);
+        }
+        if rows.is_empty() {
+            return 0;
+        }
+        let moved: Vec<slint::SharedString> = rows.iter().filter_map(|&i| self.items[from].row_data(i)).collect();
+        for &i in rows.iter().rev() {
+            self.items[from].remove(i);
+        }
+        // The item after the moved ones takes their place (as in a file
+        // manager after deleting).
+        self.landing[from].set(rows[0].min(self.items[from].row_count().saturating_sub(1)) as i32);
+        self.selection[from].reset(self.items[from].row_count());
+        let start = self.items[to].row_count();
+        for m in &moved {
+            self.items[to].push(m.clone());
+        }
+        let total = self.items[to].row_count();
+        self.selection[to].reset(total);
+        for i in start..total {
+            self.selection[to].apply(i as i32, Selection::TOGGLE);
+        }
+        moved.len() as i32
+    }
+
+    /// For the `landing` callback: the row the focus goes to in `side`
+    /// after its items moved away.
+    pub fn landing(&self, side: i32) -> i32 {
+        self.landing[Self::side(side)].get()
+    }
+
+    /// For the `reorder` callback: moves item `row` of the second list by
+    /// `delta`, and selects it there. Returns its new row, or -1.
+    pub fn reorder(&self, row: i32, delta: i32) -> i32 {
+        let list = &self.items[1];
+        let n = list.row_count() as i32;
+        let to = (row + delta).clamp(0, n - 1);
+        if row < 0 || row >= n || to == row {
+            return -1;
+        }
+        let item = list.remove(row as usize);
+        list.insert(to as usize, item);
+        self.selection[1].reset(n as usize);
+        self.selection[1].apply(to, Selection::ONLY);
+        to
+    }
+
+    /// For the `find` callback (type-ahead).
+    pub fn find(&self, side: i32, prefix: &str, from: i32) -> i32 {
+        let list = &self.items[Self::side(side)];
+        find_prefix_by(list.row_count(), prefix, from, |i| list.row_data(i).map(|s| s.to_string()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -635,5 +765,38 @@ mod tests {
         s.reset(3);
         assert_eq!(s.apply(7, Selection::ONLY), 1);
         assert_eq!(s.rows(), [2]);
+    }
+
+    #[test]
+    fn transfer_lists() {
+        let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+        let t = TransferLists::new(s(&["a", "b", "c", "d"]), s(&["x"]));
+        // Nothing selected: the current item moves.
+        assert_eq!(t.transfer(TransferLists::LEFT, 1), 1);
+        assert_eq!(t.list(0), s(&["a", "c", "d"]));
+        assert_eq!(t.list(1), s(&["x", "b"]));
+        assert_eq!(t.landing(0), 1);
+        assert_eq!(t.selected(1).iter().collect::<Vec<_>>(), vec![false, true]);
+        // Two selected move together, in order, to the end.
+        t.select(0, 0, Selection::ONLY);
+        t.select(0, 2, Selection::TOGGLE);
+        assert_eq!(t.transfer(TransferLists::LEFT, 0), 2);
+        assert_eq!(t.list(0), s(&["c"]));
+        assert_eq!(t.landing(0), 0);
+        assert_eq!(t.list(1), s(&["x", "b", "a", "d"]));
+        assert_eq!(t.selected(0).iter().collect::<Vec<_>>(), vec![false]);
+        assert_eq!(t.selected(1).iter().collect::<Vec<_>>(), vec![false, false, true, true]);
+        // Back again.
+        t.select(1, 0, Selection::ONLY);
+        assert_eq!(t.transfer(TransferLists::RIGHT, 0), 1);
+        assert_eq!(t.list(0), s(&["c", "x"]));
+        // In order: up, and not past the top.
+        assert_eq!(t.reorder(2, -1), 1);
+        assert_eq!(t.list(1), s(&["b", "d", "a"]));
+        assert_eq!(t.reorder(0, -1), -1);
+        assert_eq!(t.find(1, "a", 0), 3);
+        // An empty list moves nothing.
+        let e = TransferLists::new(vec![], vec![]);
+        assert_eq!(e.transfer(TransferLists::LEFT, 0), 0);
     }
 }

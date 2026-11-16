@@ -258,6 +258,31 @@ SCENARIOS = {
         ("p", 'list item "Projects" #2', None),
         ("p", 'list item "Pictures"', None),
     ],
+    "transfer-list": [
+        ("Tab", 'check box "Select all in Available" unchecked', None),
+        ("Tab", 'list item "Type" #1', None),
+        ("Down", 'list item "Modified" #2 selected', None),
+        ("shift+Down", 'list item "Created" #3 selected', "2 selected"),
+        # Enter moves both; the focus stays, on the item after them.
+        ("Return", 'list item "Owner" #2 selected', "Moved to Shown: 2 items"),
+        ("Return", 'list item "Permissions" #2 selected', "Moved to Shown: 1 item"),
+        # Type-ahead.
+        ("t", 'list item "Tags"', None),
+        # The buttons say where items go.
+        ("Tab", 'button "Add to Shown"', None),
+        ("Tab", 'button "Remove from Shown"', None),
+        ("Tab", 'check box "Select all in Shown" unchecked', None),
+        # The moved items are selected over there.
+        ("Tab", 'list item "Owner" #5 selected', None),
+        # In order: Alt+Up, and the new place is announced.
+        ("alt+Up", 'list item "Owner" #4 selected', "position 4 of 5"),
+        ("Home", 'list item "Name" #1 selected', None),
+        # Delete moves back.
+        ("Delete", 'list item "Size" #1 selected', "Moved to Available: 1 item"),
+        ("ctrl+a", 'list item "Size" #1 selected', "4 selected"),
+        # Emptied: the focus goes along, to what just arrived.
+        ("Return", 'list item "Size" #7 selected', "Moved to Available: 4 items"),
+    ],
     "remote": [
         ("Tab", 'entry "Search on the server"', None),
         ("Tab", 'button "Name" #1', None),

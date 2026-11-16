@@ -132,6 +132,21 @@ folder that turns out empty says "Empty". `TreeRows` (Rust) keeps the
 visible rows and loads children the first time a node opens, so they can
 come from a disk or another computer.
 
+## AccessTransferList
+
+Two lists, items move between them ("Available" and "Chosen"; a dual
+listbox). Each list is one Tab stop with Shift/Ctrl selection, Space,
+Ctrl+A, a "Select all" check box and type-ahead. Enter or a double click
+moves the selected items to the other list, Delete moves them back; with
+nothing selected, the current item moves. The focus stays where it was, on
+the item after the moved ones, so Enter, Enter, Enter moves them one by one;
+when a list empties, the focus goes along to the other one. Every move is
+announced ("Moved to Chosen: 2 items"), and the moved items are selected in
+the other list, where Tab lands on them. The buttons say where items go
+("Add to Chosen"), not only with arrows. With `orderable`, Alt+Up/Alt+Down
+put the second list in order ("position 4 of 5"). `TransferLists` (Rust)
+keeps both lists and their selections.
+
 ## AccessFilter
 
 A quick filter field that announces "12 of 2000 shown" once you stop
@@ -161,6 +176,7 @@ Examples (`cargo run` in each):
 | `examples/autocomplete` | typing with suggestions that arrive from a "server" |
 | `examples/controls` | smaller controls: the ⓘ button, segmented choices |
 | `examples/tree` | a folder tree whose folders load when opened |
+| `examples/transfer-list` | choosing columns: from "Available" to "Shown", in order |
 
 ## Translations
 
@@ -190,7 +206,7 @@ Table semantics (rows, cells, column headers) for screen readers need Slint
 and AccessKit ([slint#14965](https://github.com/slint-ui/slint/issues/14965));
 until then rows are read as list items with their column titles. Still to
 come: tree rows inside the table, groups, a card layout for
-narrow windows, editable cells, rows of different heights, drag and drop,
+narrow windows (also the transfer list's two lists under each other), editable cells, rows of different heights, drag and drop,
 right-to-left.
 
 ## Credits and licensing

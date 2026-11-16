@@ -1,0 +1,374 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// A transfer list ("dual listbox"): items move between two lists, e.g.
+// "Available" and "Chosen". Built on the table's building blocks: each list
+// has one Tab stop, several items can be selected (Shift/Ctrl, Space,
+// Ctrl+A), and only the rows on screen exist.
+//
+// Made for keyboards and screen readers, after the Pearson and Liferay dual
+// listbox guidance and the WAI-ARIA rearrangeable listbox example:
+// - Enter (or a double click) moves the selected items to the other list;
+//   Delete in the second list moves them back. With nothing selected, the
+//   current item moves. The focus stays in the list, on the next item, so
+//   Enter, Enter, Enter moves one after the other.
+// - The buttons say in words where items go ("Add to Chosen"), not only
+//   with arrows.
+// - Every move is announced ("Moved to Chosen: 2 items"); the moved items
+//   are selected in the other list, so you see where they went.
+// - With `orderable`, Alt+Up/Alt+Down move an item in the second list.
+
+import { Palette, Button } from "std-widgets.slint";
+import { AccessTableView, AccessRow, AccessSelect, AccessTableTexts } from "table.slint";
+import { AccessAnnouncer } from "cells.slint";
+import { AccessFocus } from "focus.slint";
+
+export global AccessTransferTexts {
+    in-out property <string> add: @tr("access-widgets" => "Add");
+    in-out property <string> remove: @tr("access-widgets" => "Remove");
+    in-out property <string> select-all: @tr("access-widgets" => "Select all");
+    pure public function add-to(list: string) -> string {
+        @tr("access-widgets" => "Add to {}", list)
+    }
+    pure public function remove-from(list: string) -> string {
+        @tr("access-widgets" => "Remove from {}", list)
+    }
+    pure public function select-all-in(list: string) -> string {
+        @tr("access-widgets" => "Select all in {}", list)
+    }
+    pure public function selected-of(n: int, total: int) -> string {
+        @tr("access-widgets" => "{} of {} selected", n, total)
+    }
+    pure public function moved-to(list: string) -> string {
+        @tr("access-widgets" => "Moved to {}", list)
+    }
+    pure public function count(n: int) -> string {
+        @tr("access-widgets" => "{n} item" | "{n} items" % n)
+    }
+    pure public function position(n: int, of: int) -> string {
+        @tr("access-widgets" => "position {} of {}", n, of)
+    }
+}
+
+// "Select all" above a list: a real check box (role, state, Space).
+component SelectAll inherits Rectangle {
+    in property <string> text;
+    in property <string> list;
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    callback toggled();
+
+    min-height: max(24px, t.preferred-height + 8px);
+    min-width: t.preferred-width + 34px;
+
+    accessible-role: checkbox;
+    accessible-label: AccessTransferTexts.select-all-in(list);
+    accessible-checkable: true;
+    accessible-checked: checked;
+    accessible-enabled: enabled;
+    accessible-action-default => { if (enabled) { toggled(); } }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            AccessFocus.keyboard = false;
+            fs.focus();
+            toggled();
+        }
+    }
+    fs := FocusScope {
+        enabled: root.enabled;
+        focus-on-click: false;
+        capture-key-pressed(e) => {
+            AccessFocus.keyboard = true;
+            reject
+        }
+        focus-gained(reason) => {
+            if (reason == FocusReason.tab-navigation) { AccessFocus.keyboard = true; }
+        }
+        key-pressed(e) => {
+            if (e.text == " ") { toggled(); return accept; }
+            reject
+        }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        padding-left: 4px;
+        padding-right: 4px;
+        Rectangle {
+            width: 16px;
+            height: 16px;
+            y: (parent.height - self.height) / 2;
+            border-radius: 3px;
+            border-width: 1px;
+            border-color: enabled ? Palette.foreground : Palette.border;
+            background: checked && enabled ? Palette.accent-background : transparent;
+            opacity: enabled ? 1 : 0.5;
+            Text {
+                text: checked ? "✓" : "";
+                color: Palette.accent-foreground;
+                font-size: 12px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                accessible-role: none;
+            }
+        }
+        t := Text {
+            text: root.text;
+            color: Palette.foreground;
+            opacity: enabled ? 1 : 0.45;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+    // Visible focus (WCAG 2.4.7), after keyboard use.
+    Rectangle {
+        border-width: fs.has-focus && AccessFocus.show ? 2px : 0px;
+        border-color: Palette.accent-background;
+        border-radius: 4px;
+    }
+}
+
+// One of the two lists, with its heading and "Select all".
+component TransferPane inherits VerticalLayout {
+    in property <string> label;
+    in property <[string]> items;
+    in property <[bool]> selected;
+    // Alt+Up/Down move items (`reorder`).
+    in property <bool> orderable;
+    // How many are selected: kept up to date from what `select` returns.
+    in-out property <int> chosen;
+
+    callback select(row: int, how: int) -> int;
+    // Enter, double click (and Delete, when `delete-moves`).
+    callback move-out();
+    in property <bool> delete-moves;
+    callback reorder(row: int, delta: int) -> int;
+    callback find(prefix: string, from: int) -> int;
+    callback say(string);
+
+    out property <int> current: view.current;
+    out property <bool> has-focus: view.active;
+
+    public function go-to(i: int) { view.go-to(i); }
+    public function focus-current() { view.focus-current(); }
+    // Make row `i` current without taking the focus.
+    public function show-row(i: int) { view.move-current(i); }
+    // After items left: stay on the same place, select that item.
+    public function after-move(i: int) {
+        if (items.length == 0) { return; }
+        view.go-to(min(i, items.length - 1));
+        chosen = select(view.current, AccessSelect.only);
+    }
+
+    spacing: 4px;
+    horizontal-stretch: 1;
+
+    HorizontalLayout {
+        spacing: 8px;
+        Text {
+            text: label;
+            font-weight: 700;
+            color: Palette.foreground;
+            vertical-alignment: center;
+        }
+        Text {
+            text: AccessTransferTexts.selected-of(chosen, items.length);
+            color: Palette.foreground;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        SelectAll {
+            text: AccessTransferTexts.select-all;
+            list: label;
+            enabled: items.length > 0;
+            checked: items.length > 0 && chosen == items.length;
+            toggled => {
+                chosen = select(-1, chosen == items.length ? AccessSelect.clear : AccessSelect.all);
+                say(AccessTableTexts.selected-count(chosen));
+            }
+        }
+    }
+    Rectangle {
+        background: Palette.background;
+        border-width: 1px;
+        border-color: Palette.border;
+        min-height: 120px;
+        vertical-stretch: 1;
+
+        view := AccessTableView {
+            label: root.label;
+            count: items.length;
+            find(p, f) => { root.find(p, f) }
+
+            for k in view.slots : r := AccessRow {
+                property <int> n: view.first + k;
+                state: view.state;
+                index: n;
+                label: items[n];
+                selected: n < selected.length && selected[n];
+                navigate(i, m) => {
+                    if (m.alt && orderable && !m.shift && !m.control) {
+                        // Alt+Up/Down: move the item itself.
+                        let to = reorder(n, i - n);
+                        if (to >= 0) {
+                            view.go-to(to);
+                            chosen = 1;
+                            say(AccessTransferTexts.position(to + 1, items.length));
+                        }
+                        return;
+                    }
+                    view.go-to(i);
+                    if (!m.control) {
+                        chosen = select(view.current, m.shift ? AccessSelect.extend : AccessSelect.only);
+                        if (m.shift) { say(AccessTableTexts.selected-count(chosen)); }
+                    }
+                }
+                select-all => {
+                    chosen = select(-1, AccessSelect.all);
+                    say(AccessTableTexts.selected-count(chosen));
+                }
+                toggled(i) => {
+                    chosen = select(i, AccessSelect.toggle);
+                    say(AccessTableTexts.selected-count(chosen));
+                }
+                activated(i) => { move-out(); }
+                deleted(i) => { if (delete-moves) { move-out(); } }
+                typed(t) => { view.type-ahead(t); }
+                focus-changed(f) => { view.active = f; }
+
+                Text {
+                    x: 8px;
+                    width: parent.width - 16px;
+                    text: items[n];
+                    color: r.text-color;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    accessible-role: none;
+                }
+            }
+        }
+        // An empty list says so (also to a screen reader: the list's
+        // description is "0 items").
+        if items.length == 0: Text {
+            text: AccessTableTexts.no-items;
+            color: Palette.foreground;
+            opacity: 0.6;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
+    }
+}
+
+export component AccessTransferList inherits Rectangle {
+    // The names of the two lists, e.g. "Available" and "Chosen".
+    in property <string> left-label;
+    in property <string> right-label;
+    in property <[string]> left-items;
+    in property <[string]> right-items;
+    // Which items are selected; `slint_access_widgets::TransferLists`
+    // keeps these.
+    in property <[bool]> left-selected;
+    in property <[bool]> right-selected;
+    // Alt+Up/Down to put the items in the second list in order.
+    in property <bool> orderable;
+
+    // `side` is 0 for the first list, 1 for the second.
+    // A change of selection (as `AccessTable.select`); return the count.
+    callback select(side: int, row: int, how: int) -> int;
+    // Move the selected items of `side` (or, with none selected, the item
+    // at `current`) to the other list; return how many moved.
+    callback transfer(side: int, current: int) -> int;
+    // Where the focus goes in `side` after its items moved away: the item
+    // after them (`TransferLists::landing`).
+    callback landing(side: int) -> int;
+    // Move item `row` of the second list by `delta`; return its new row,
+    // or -1 when it can't move.
+    callback reorder(row: int, delta: int) -> int;
+    // Type-ahead in list `side`: as `AccessTable.find`
+    // (`TransferLists::find`).
+    callback find(side: int, prefix: string, from: int) -> int;
+
+    public function focus-first() { left.focus-current(); }
+
+    function move(side: int) {
+        let from-current = side == 0 ? left.current : right.current;
+        let n = transfer(side, from-current);
+        if (n <= 0) { return; }
+        let to = side == 0 ? right-label : left-label;
+        news.say(AccessTransferTexts.moved-to(to) + ": " + AccessTransferTexts.count(n));
+        // The moved items are the selection over there now (see
+        // `TransferLists::transfer`).
+        if (side == 0) {
+            left.chosen = 0;
+            right.chosen = n;
+            // Tab into the other list lands on what just arrived.
+            right.show-row(right-items.length - n);
+            // Emptied: the focus goes along (see `later`), so it isn't lost.
+            if (left-items.length == 0) { hand-over = 1; later.start(); } else { left.after-move(landing(0)); }
+        } else {
+            right.chosen = 0;
+            left.chosen = n;
+            left.show-row(left-items.length - n);
+            if (right-items.length == 0) { hand-over = 0; later.start(); } else { right.after-move(landing(1)); }
+        }
+    }
+
+    min-height: 200px;
+    vertical-stretch: 1;
+    horizontal-stretch: 1;
+
+    HorizontalLayout {
+        spacing: 12px;
+        left := TransferPane {
+            label: left-label;
+            items: left-items;
+            selected: left-selected;
+            select(r, h) => { root.select(0, r, h) }
+            find(p, f) => { root.find(0, p, f) }
+            move-out => { move(0); }
+            say(t) => { news.say(t); }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 8px;
+            Button {
+                text: AccessTransferTexts.add + "  →";
+                accessible-label: AccessTransferTexts.add-to(right-label);
+                enabled: left.chosen > 0;
+                clicked => { move(0); }
+            }
+            Button {
+                text: "←  " + AccessTransferTexts.remove;
+                accessible-label: AccessTransferTexts.remove-from(right-label);
+                enabled: right.chosen > 0;
+                clicked => { move(1); }
+            }
+        }
+        right := TransferPane {
+            label: right-label;
+            items: right-items;
+            selected: right-selected;
+            orderable: root.orderable;
+            delete-moves: true;
+            select(r, h) => { root.select(1, r, h) }
+            find(p, f) => { root.find(1, p, f) }
+            reorder(r, d) => { root.reorder(r, d) }
+            move-out => { move(1); }
+            say(t) => { news.say(t); }
+        }
+    }
+    // A list that empties loses its focused row only after this handler;
+    // the focus goes to the other list just after that, or it would be lost.
+    property <int> hand-over;
+    later := Timer {
+        interval: 1ms;
+        running: false;
+        triggered => {
+            self.stop();
+            if (hand-over == 0) { left.focus-current(); } else { right.focus-current(); }
+        }
+    }
+    news := AccessAnnouncer { }
+}
