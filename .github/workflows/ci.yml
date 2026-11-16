@@ -23,7 +23,7 @@ jobs:
       - name: system packages (fonts, invisible display, accessibility bus)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev xvfb xdotool xclip \
+          sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-0 xvfb xdotool xclip \
             at-spi2-core python3-pyatspi dbus-x11 fonts-noto-core
       - name: build and lint the examples
         run: |
