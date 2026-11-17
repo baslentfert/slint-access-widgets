@@ -305,6 +305,18 @@ SCENARIOS = {
 }
 
 
+def find_app(name):
+    """The app on the accessibility bus. An app that just quit (the previous
+    scenario) may still be listed and fail when asked its name: skip it."""
+    for a in pyatspi.Registry.getDesktop(0):
+        try:
+            if a is not None and a.name == name:
+                return a
+        except Exception:
+            continue
+    return None
+
+
 def run(name):
     exe = os.path.join(ROOT, "examples", name, "target", "debug", name)
     # English, whatever the system language is.
@@ -314,7 +326,7 @@ def run(name):
     try:
         app = None
         for _ in range(60):
-            app = next((a for a in pyatspi.Registry.getDesktop(0) if a is not None and a.name == name), None)
+            app = find_app(name)
             if app:
                 break
             time.sleep(0.25)
