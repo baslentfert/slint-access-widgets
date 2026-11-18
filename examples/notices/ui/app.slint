@@ -1,0 +1,49 @@
+// Messages: an alert that stays, and a snackbar with and without "Undo".
+
+import { AccessAlert, AccessSnackbar, AccessSeverity } from "@access-widgets";
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Notices";
+    preferred-width: 560px;
+    preferred-height: 440px;
+    property <int> files: 3;
+
+    VerticalBox {
+        alignment: start;
+        saved := AccessAlert {
+            severity: success;
+            title: "Settings saved";
+            text: "They apply from the next connection.";
+        }
+        failed := AccessAlert {
+            severity: error;
+            title: "3 files could not be sent";
+            text: "The other computer has no room left.";
+            action-text: "Try again";
+            action => { self.shown = false; snack.show("Sending again", ""); }
+        }
+        HorizontalBox {
+            padding: 0;
+            Button { text: "Save"; clicked => { saved.shown = true; } }
+            Button { text: "Send"; clicked => { failed.shown = true; } }
+            delete := Button {
+                text: "Delete a file";
+                enabled: files > 0;
+                clicked => {
+                    files -= 1;
+                    snack.show("File deleted", "Undo");
+                }
+            }
+            Button { text: "Copy link"; clicked => { snack.show("Link copied", ""); } }
+        }
+        Text { text: files + " files"; }
+    }
+    snack := AccessSnackbar {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height - 16px;
+        action => { files += 1; }
+        // The focus was in the message: back to where the user was.
+        closed => { if (self.had-focus) { delete.focus(); } }
+    }
+}

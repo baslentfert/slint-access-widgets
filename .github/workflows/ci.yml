@@ -27,7 +27,7 @@ jobs:
             at-spi2-core python3-pyatspi dbus-x11 fonts-noto-core
       - name: build and lint the examples
         run: |
-          for e in basic gallery transfer remote autocomplete controls tree transfer-list; do
+          for e in basic gallery transfer remote autocomplete controls tree transfer-list notices; do
             cargo clippy --manifest-path examples/$e/Cargo.toml -- -D warnings
             cargo build --manifest-path examples/$e/Cargo.toml
           done

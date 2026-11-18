@@ -63,7 +63,24 @@ def focused(a):
     return None
 
 
-# (key, text the focus must contain, text an announcement must contain)
+def find(a, text):
+    """The first element (not only the focused one) whose description
+    contains `text`."""
+    try:
+        if text in describe(a):
+            return a
+        for c in a:
+            if c is not None and (f := find(c, text)):
+                return f
+    except Exception:
+        pass
+    return None
+
+
+# (key, text the focus must contain, text an announcement must contain).
+# Besides keys: "find" (an element with that text must exist, focused or
+# not), "gone" (it must not), "hover" (the mouse onto it), "unhover" (the
+# mouse into the window's top left corner), "wait" (1 s) or "wait N" (N s).
 SCENARIOS = {
     "gallery": [
         ("Tab", 'entry "Filter files"', None),
@@ -283,6 +300,45 @@ SCENARIOS = {
         # Emptied: the focus goes along, to what just arrived.
         ("Return", 'list item "Size" #7 selected', "Moved to Available: 4 items"),
     ],
+    "notices": [
+        ("Tab", 'button "Save"', None),
+        # An alert: shown in the window, announced; the focus stays.
+        ("Return", 'button "Save"', "Success: Settings saved. They apply from the next connection."),
+        ("find", '"Success: Settings saved"', None),
+        # Errors are announced at once, with the button that comes with it.
+        ("Tab", 'button "Send"', None),
+        ("Return", 'button "Send"', "Error: 3 files could not be sent. The other computer has no room left. Try again is available"),
+        ("find", '"Error: 3 files could not be sent"', None),
+        ("find", 'button "Close message: 3 files could not be sent"', None),
+        # A snackbar with a button: announced, never takes the focus...
+        ("Tab", 'button "Delete a file"', None),
+        ("Return", 'button "Delete a file"', "File deleted. Undo is available"),
+        ("find", '"File deleted"', None),
+        # ... but Tab reaches it, and it stays (it has a button).
+        ("Tab", 'button "Copy link"', None),
+        ("Tab", 'button "Undo"', None),
+        ("wait 7", 'button "Undo"', None),
+        ("Return", 'button "Delete a file"', None),
+        ("gone", '"File deleted"', None),
+        ("find", 'label "3 files"', None),
+        # Without a button: away by itself, but not while it has the focus.
+        ("Tab", 'button "Copy link"', None),
+        ("Return", 'button "Copy link"', "Link copied"),
+        ("Tab", 'button "Close message: Link copied"', None),
+        ("wait 7", 'button "Close message: Link copied"', None),
+        # Escape closes it; the focus goes back.
+        ("Escape", 'button "Delete a file"', None),
+        ("gone", '"Link copied"', None),
+        # Nor while the mouse is on it; then it goes.
+        ("Tab", 'button "Copy link"', None),
+        ("Return", 'button "Copy link"', "Link copied"),
+        ("hover", 'button "Close message: Link copied"', None),
+        ("wait 7", 'button "Copy link"', None),
+        ("find", '"Link copied"', None),
+        ("unhover", "", None),
+        ("wait 7", 'button "Copy link"', None),
+        ("gone", '"Link copied"', None),
+    ],
     "remote": [
         ("Tab", 'entry "Search on the server"', None),
         ("Tab", 'button "Name" #1', None),
@@ -362,8 +418,33 @@ def run(name):
                     print(f"     wanted {want_focus!r}")
                     return False
                 continue
-            if key == "wait":
-                pump(1.0)
+            if key in ("find", "gone"):
+                # Shown and hidden things can take a frame to reach the bus.
+                t1 = time.time()
+                while (find(app, want_focus) is None) == (key == "find") and time.time() - t1 < 2:
+                    pump(0.1)
+                f = find(app, want_focus)
+                ok = (f is not None) == (key == "find")
+                print(f"{'ok  ' if ok else 'FAIL'} {key:<10} {describe(f) if f else want_focus + ' (not there)'}")
+                if not ok:
+                    return False
+                continue
+            if key in ("hover", "unhover"):
+                if key == "hover":
+                    f = find(app, want_focus)
+                    if f is None:
+                        print(f"FAIL hover      {want_focus!r} not there")
+                        return False
+                    e = f.queryComponent().getExtents(pyatspi.DESKTOP_COORDS)
+                    x, y = e.x + e.width // 2, e.y + e.height // 2
+                else:
+                    x, y = 5, 5
+                subprocess.run(["xdotool", "mousemove", str(x), str(y)], check=True)
+                pump(0.3)
+                print(f"ok   {key:<10} {x},{y}")
+                continue
+            if key.startswith("wait"):
+                pump(float(key[4:] or 1))
             else:
                 subprocess.run(["xdotool", "key", "--clearmodifiers", key], check=True)
                 t0 = time.time()

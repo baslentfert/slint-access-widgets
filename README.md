@@ -147,6 +147,32 @@ the other list, where Tab lands on them. The buttons say where items go
 put the second list in order ("position 4 of 5"). `TransferLists` (Rust)
 keeps both lists and their selections.
 
+## AccessAlert and AccessSnackbar
+
+Messages for the user (WCAG 4.1.3 status messages). Both are announced
+without moving the focus: errors and warnings at once (an assertive live
+region, like the WAI-ARIA APG
+[alert pattern](https://www.w3.org/WAI/ARIA/apg/patterns/alert/)), the rest
+when the screen reader is done with what it is saying (a polite one, like
+the [`status` role](https://www.w3.org/TR/wai-aria-1.2/#status)). The kind
+shows by an icon with its own shape and is said as a word ("Error: …"), not
+only by colour (WCAG 1.4.1).
+
+- **`AccessAlert`** stays in the window until closed ("Settings saved",
+  "3 files could not be sent"). Set `shown: true`; it is announced then and
+  whenever its text changes: "Error: 3 files could not be sent. The other
+  computer has no room left. Try again is available". It reads as a group
+  with that name, with an optional button (`action-text`) and a close
+  button ("Close message: 3 files could not be sent") that Tab reaches in
+  the normal order.
+- **`AccessSnackbar`** is a short message at the edge of the window:
+  `snack.show("File deleted", "Undo")`. It never takes the focus, but Tab
+  reaches its buttons and Escape inside closes it. Without a button it goes
+  away by itself (`duration`, 6 s), **but not while the mouse is on it or
+  the focus is in it** (WCAG 2.2.1); with a button it stays until closed, so
+  there is always time to reach it. When it closes with the focus inside,
+  `had-focus` is true: put the focus back where the user was (`closed`).
+
 ## AccessFilter
 
 A quick filter field that announces "12 of 2000 shown" once you stop
@@ -177,6 +203,7 @@ Examples (`cargo run` in each):
 | `examples/controls` | smaller controls: the ⓘ button, segmented choices |
 | `examples/tree` | a folder tree whose folders load when opened |
 | `examples/transfer-list` | choosing columns: from "Available" to "Shown", in order |
+| `examples/notices` | alerts that stay, and a snackbar with "Undo" |
 
 ## Translations
 

@@ -16,6 +16,13 @@ export global AccessColors {
     out property <brush> success-background: dark ? #393D1B : #DFF6DD;
     out property <brush> warning-background: dark ? #433519 : #FFF4CE;
     out property <brush> error-background: dark ? #442726 : #FDE7E9;
+    out property <brush> info-background: dark ? #082338 : #EBF3FC;
+    // Icons and edges on those backgrounds (Fluent 2 status colours; 3:1
+    // or more against them, WCAG 1.4.11).
+    out property <brush> success-foreground: dark ? #54B054 : #0E700E;
+    out property <brush> warning-foreground: dark ? #F98845 : #8A3707;
+    out property <brush> error-foreground: dark ? #DC626D : #B10E1C;
+    out property <brush> info-foreground: dark ? #479EF5 : #0F6CBD;
 }
 
 // A check box look (e.g. "selected"). 16 px box inside a 24 px area (WCAG
@@ -115,9 +122,16 @@ export component AccessTextCell inherits Rectangle {
 // e.g. "12 files sent". Saying the same thing twice is heard twice.
 export component AccessAnnouncer inherits Rectangle {
     property <bool> flip;
+    // Read when the screen reader is done with what it is saying.
     public function say(t: string) {
         flip = !flip;
         news.text = t + (flip ? "" : " ");
+    }
+    // Read at once, interrupting: only for errors and warnings that need
+    // attention now.
+    public function say-now(t: string) {
+        flip = !flip;
+        urgent.text = t + (flip ? "" : " ");
     }
     width: 1px;
     height: 1px;
@@ -126,5 +140,11 @@ export component AccessAnnouncer inherits Rectangle {
         accessible-role: AccessibleRole.text;
         accessible-label: self.text;
         accessible-live-region: polite;
+    }
+    urgent := Text {
+        color: transparent;
+        accessible-role: AccessibleRole.text;
+        accessible-label: self.text;
+        accessible-live-region: assertive;
     }
 }

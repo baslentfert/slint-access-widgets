@@ -1,0 +1,318 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// Messages for the user, after the GOV.UK notification banner, Scott
+// O'Hara's "A toast to a11y toasts" and WCAG 4.1.3 (status messages),
+// 2.2.1 (timing) and 1.4.1 (not colour alone):
+//
+// - `AccessAlert`: a message in the page that stays until closed ("Saved",
+//   "3 files could not be sent"). Announced when it appears or changes,
+//   errors and warnings at once, the rest when the screen reader is free.
+// - `AccessSnackbar`: a short message at the edge of the window, e.g.
+//   "File deleted" with "Undo". It never takes the focus. Without a button
+//   it goes away by itself, but not while the mouse is on it or it has the
+//   focus; with a button it stays until closed, so there is always time to
+//   reach it (Tab) and use it.
+//
+// The kind shows by an icon and a word for screen readers ("Error: …"), not
+// only by colour.
+
+import { Palette, Button } from "std-widgets.slint";
+import { AccessAnnouncer, AccessColors } from "cells.slint";
+import { AccessFocus } from "focus.slint";
+
+export enum AccessSeverity { info, success, warning, error }
+
+export global AccessNoticeTexts {
+    in-out property <string> info: @tr("access-widgets" => "Information");
+    in-out property <string> success: @tr("access-widgets" => "Success");
+    in-out property <string> warning: @tr("access-widgets" => "Warning");
+    in-out property <string> error: @tr("access-widgets" => "Error");
+    in-out property <string> close: @tr("access-widgets" => "Close");
+    pure public function close-about(what: string) -> string {
+        @tr("access-widgets" => "Close message: {}", what)
+    }
+    pure public function action-available(action: string) -> string {
+        @tr("access-widgets" => "{} is available", action)
+    }
+    pure public function word(s: AccessSeverity) -> string {
+        s == AccessSeverity.error ? error : s == AccessSeverity.warning ? warning : s == AccessSeverity.success ? success : info
+    }
+}
+
+// The icon and colours of a kind of message.
+global Look {
+    // Two sentences after each other, without ".." when the first already
+    // ends in a full stop.
+    pure public function then(a: string, b: string) -> string {
+        a == "" ? b : b == "" ? a : a + (a.ends-with(".") || a.ends-with("!") || a.ends-with("?") || a.ends-with("…") ? " " : ". ") + b
+    }
+    pure public function background(s: AccessSeverity) -> brush {
+        s == AccessSeverity.error ? AccessColors.error-background : s == AccessSeverity.warning ? AccessColors.warning-background
+            : s == AccessSeverity.success ? AccessColors.success-background : AccessColors.info-background
+    }
+    pure public function foreground(s: AccessSeverity) -> brush {
+        s == AccessSeverity.error ? AccessColors.error-foreground : s == AccessSeverity.warning ? AccessColors.warning-foreground
+            : s == AccessSeverity.success ? AccessColors.success-foreground : AccessColors.info-foreground
+    }
+    pure public function glyph(s: AccessSeverity) -> string {
+        s == AccessSeverity.error ? "✕" : s == AccessSeverity.warning ? "!" : s == AccessSeverity.success ? "✓" : "i"
+    }
+}
+
+component Icon inherits Rectangle {
+    in property <AccessSeverity> severity;
+    in property <brush> tint: Look.foreground(severity);
+    in property <brush> mark: Palette.background;
+    width: 20px;
+    height: 20px;
+    // A different shape per kind too: round, a diamond for warnings.
+    border-radius: severity == AccessSeverity.warning ? 3px : 10px;
+    background: tint;
+    accessible-role: none;
+    Text {
+        text: Look.glyph(severity);
+        color: mark;
+        font-weight: 700;
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+}
+
+// A small ✕ button, 24 × 24 px at least (WCAG 2.5.8).
+component CloseButton inherits Rectangle {
+    in property <string> label;
+    in property <brush> tint: Palette.foreground;
+    callback clicked();
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    background: touch.has-hover ? Palette.alternate-background.transparentize(0.3) : transparent;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => { clicked(); }
+    Text {
+        text: "✕";
+        color: root.tint;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+    touch := TouchArea {
+        clicked => {
+            AccessFocus.keyboard = false;
+            root.clicked();
+        }
+    }
+    fs := FocusScope {
+        focus-on-click: false;
+        capture-key-pressed(e) => {
+            AccessFocus.keyboard = true;
+            reject
+        }
+        focus-gained(reason) => {
+            if (reason == FocusReason.tab-navigation) { AccessFocus.keyboard = true; }
+        }
+        key-pressed(e) => {
+            if (e.text == Key.Return || e.text == " ") { root.clicked(); return accept; }
+            reject
+        }
+    }
+    out property <bool> has-focus: fs.has-focus;
+    Rectangle {
+        border-width: fs.has-focus && AccessFocus.show ? 2px : 0px;
+        border-color: root.tint;
+        border-radius: 4px;
+    }
+}
+
+export component AccessAlert inherits Rectangle {
+    in property <AccessSeverity> severity: info;
+    // A short title, e.g. "Saved"; may be empty.
+    in property <string> title;
+    in property <string> text;
+    // A button in the message, e.g. "Try again"; empty = none.
+    in property <string> action-text;
+    // Show a close button.
+    in property <bool> closable: true;
+    // Set to true to show it (it is announced then); false hides it.
+    in-out property <bool> shown: false;
+    callback action();
+    callback closed();
+
+    property <string> summary: Look.then(title, text);
+    function announce() {
+        if (!shown) { return; }
+        let t = AccessNoticeTexts.word(severity) + ": "
+            + Look.then(summary, action-text != "" ? AccessNoticeTexts.action-available(action-text) : "");
+        if (severity == AccessSeverity.error || severity == AccessSeverity.warning) { news.say-now(t); } else { news.say(t); }
+    }
+    changed shown => { announce(); }
+    changed summary => { announce(); }
+
+    visible: shown;
+    height: shown ? self.preferred-height : 0;
+    background: Look.background(severity);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: Look.foreground(severity);
+    clip: true;
+
+    // A screen reader reads it as one group: "Error: 3 files could not be
+    // sent", then the text and buttons inside.
+    accessible-role: groupbox;
+    accessible-label: AccessNoticeTexts.word(severity) + ": " + (title != "" ? title : text);
+
+    HorizontalLayout {
+        padding: 10px;
+        padding-left: 12px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: start;
+            padding-top: 1px;
+            Icon { severity: root.severity; }
+        }
+        VerticalLayout {
+            spacing: 2px;
+            alignment: center;
+            horizontal-stretch: 1;
+            if title != "": Text {
+                text: title;
+                font-weight: 700;
+                color: Palette.foreground;
+                wrap: word-wrap;
+            }
+            if text != "": Text {
+                text: root.text;
+                color: Palette.foreground;
+                wrap: word-wrap;
+            }
+        }
+        if action-text != "": VerticalLayout {
+            alignment: center;
+            Button {
+                text: action-text;
+                clicked => { root.action(); }
+            }
+        }
+        if closable: VerticalLayout {
+            alignment: start;
+            CloseButton {
+                label: AccessNoticeTexts.close-about(title != "" ? title : text);
+                clicked => {
+                    shown = false;
+                    closed();
+                }
+            }
+        }
+    }
+    news := AccessAnnouncer { }
+}
+
+// Place it at the bottom of your window, over the rest, e.g.
+//     snack := AccessSnackbar { x: (parent.width - self.width) / 2; y: parent.height - self.height - 16px; }
+// and call `snack.show("File deleted", "Undo")`.
+export component AccessSnackbar inherits Rectangle {
+    in property <AccessSeverity> severity: info;
+    // How long a message without a button stays.
+    in property <duration> duration: 6s;
+    // Room left and right in the window.
+    in property <length> widest: 560px;
+    out property <bool> open;
+    out property <string> text;
+    out property <string> action-text;
+    // The button was used (the message closes).
+    callback action();
+    // Closed by the user, the button or the time. If the focus was in it,
+    // put the focus back where the user was.
+    callback closed();
+    out property <bool> had-focus;
+
+    public function show(message: string, action: string) {
+        text = message;
+        action-text = action;
+        open = true;
+        if (wait.running) { wait.restart(); }
+        let t = Look.then(message, action != "" ? AccessNoticeTexts.action-available(action) : "");
+        if (severity == AccessSeverity.error || severity == AccessSeverity.warning) { news.say-now(t); } else { news.say(t); }
+    }
+    public function close() {
+        if (!open) { return; }
+        had-focus = focused;
+        open = false;
+        closed();
+    }
+
+    // Away by itself only without a button, and not while in use.
+    property <bool> action-focused;
+    property <bool> focused: close-button.has-focus || action-focused || inside.has-focus;
+    property <bool> busy: hover.has-hover || focused;
+    wait := Timer {
+        interval: root.duration;
+        running: open && action-text == "" && !busy;
+        triggered => { close(); }
+    }
+
+    visible: open;
+    width: min(widest, layout.preferred-width);
+    height: layout.preferred-height;
+    // Inverted, as usual for snackbars, and with a coloured edge per kind.
+    background: Palette.foreground;
+    border-radius: 6px;
+    drop-shadow-blur: 10px;
+    drop-shadow-color: #0005;
+
+    accessible-role: groupbox;
+    accessible-label: open ? (severity == AccessSeverity.info ? text : AccessNoticeTexts.word(severity) + ": " + text) : "";
+
+    // Around everything, so the mouse on the buttons counts too.
+    hover := TouchArea {
+        // Escape anywhere inside closes it.
+        inside := FocusScope {
+            focus-on-click: false;
+            focus-on-tab-navigation: false;
+            key-pressed(e) => {
+                if (e.text == Key.Escape) { close(); return accept; }
+                reject
+            }
+            layout := HorizontalLayout {
+                padding: 8px;
+                padding-left: 14px;
+                spacing: 10px;
+                if severity != AccessSeverity.info: VerticalLayout {
+                    alignment: center;
+                    Icon { severity: root.severity; mark: Palette.foreground; tint: Palette.background; }
+                }
+                Text {
+                    text: root.text;
+                    color: Palette.background;
+                    wrap: word-wrap;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    min-width: 120px;
+                }
+                if action-text != "": VerticalLayout {
+                    alignment: center;
+                    Button {
+                        text: action-text;
+                        changed has-focus => { root.action-focused = self.has-focus; }
+                        clicked => {
+                            root.action();
+                            close();
+                        }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    close-button := CloseButton {
+                        label: AccessNoticeTexts.close-about(text);
+                        tint: Palette.background;
+                        clicked => { close(); }
+                    }
+                }
+            }
+        }
+    }
+    news := AccessAnnouncer { }
+}

@@ -115,6 +115,80 @@ msgid "Go to the table"
 msgstr ""
 
 #. From the crate slint-access-widgets
+#: slint-access-widgets:ui/autocomplete.slint:21
+msgctxt "access-widgets"
+msgid "Suggestions"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/autocomplete.slint:22
+msgctxt "access-widgets"
+msgid "Searching…"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/autocomplete.slint:23
+msgctxt "access-widgets"
+msgid "No suggestions"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/autocomplete.slint:25
+msgctxt "access-widgets"
+msgid "{n} suggestion"
+msgid_plural "{n} suggestions"
+msgstr[0] ""
+msgstr[1] ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/info.slint:26
+msgctxt "access-widgets"
+msgid "More about {}"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/notice.slint:26
+msgctxt "access-widgets"
+msgid "Information"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/notice.slint:27
+msgctxt "access-widgets"
+msgid "Success"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/notice.slint:28
+msgctxt "access-widgets"
+msgid "Warning"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/notice.slint:29
+msgctxt "access-widgets"
+msgid "Error"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/notice.slint:30
+msgctxt "access-widgets"
+msgid "Close"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/notice.slint:32
+msgctxt "access-widgets"
+msgid "Close message: {}"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/notice.slint:35
+msgctxt "access-widgets"
+msgid "{} is available"
+msgstr ""
+
+#. From the crate slint-access-widgets
 #: slint-access-widgets:ui/table.slint:62
 msgctxt "access-widgets"
 msgid "sorted ascending"
@@ -169,7 +243,7 @@ msgid "column {} of {}"
 msgstr ""
 
 #. From the crate slint-access-widgets
-#: slint-access-widgets:ui/table.slint:76
+#: slint-access-widgets:ui/table.slint:76 slint-access-widgets:ui/tree.slint:30
 msgctxt "access-widgets"
 msgid "level {}"
 msgstr ""
@@ -237,17 +311,23 @@ msgstr ""
 #. From the crate slint-access-widgets
 #: slint-access-widgets:ui/table.slint:89
 msgctxt "access-widgets"
-msgid "hidden"
+msgid "Could not copy"
 msgstr ""
 
 #. From the crate slint-access-widgets
 #: slint-access-widgets:ui/table.slint:90
 msgctxt "access-widgets"
+msgid "hidden"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/table.slint:91
+msgctxt "access-widgets"
 msgid "shown"
 msgstr ""
 
 #. From the crate slint-access-widgets
-#: slint-access-widgets:ui/table.slint:92
+#: slint-access-widgets:ui/table.slint:93
 msgctxt "access-widgets"
 msgid "{n} row copied"
 msgid_plural "{n} rows copied"
@@ -255,10 +335,98 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. From the crate slint-access-widgets
-#: slint-access-widgets:ui/table.slint:95
+#: slint-access-widgets:ui/table.slint:96
 msgctxt "access-widgets"
 msgid "{} of {} shown"
 msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/transfer.slint:26
+msgctxt "access-widgets"
+msgid "Add"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/transfer.slint:27
+msgctxt "access-widgets"
+msgid "Remove"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/transfer.slint:28
+msgctxt "access-widgets"
+msgid "Select all"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/transfer.slint:30
+msgctxt "access-widgets"
+msgid "Add to {}"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/transfer.slint:33
+msgctxt "access-widgets"
+msgid "Remove from {}"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/transfer.slint:36
+msgctxt "access-widgets"
+msgid "Select all in {}"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/transfer.slint:39
+msgctxt "access-widgets"
+msgid "{} of {} selected"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/transfer.slint:42
+msgctxt "access-widgets"
+msgid "Moved to {}"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/transfer.slint:45
+msgctxt "access-widgets"
+msgid "{n} item"
+msgid_plural "{n} items"
+msgstr[0] ""
+msgstr[1] ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/transfer.slint:48
+msgctxt "access-widgets"
+msgid "position {} of {}"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/tree.slint:32
+msgctxt "access-widgets"
+msgid "expanded"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/tree.slint:33
+msgctxt "access-widgets"
+msgid "collapsed"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/tree.slint:34
+msgctxt "access-widgets"
+msgid "Empty"
+msgstr ""
+
+#. From the crate slint-access-widgets
+#: slint-access-widgets:ui/tree.slint:36
+msgctxt "access-widgets"
+msgid "expanded, {n} item"
+msgid_plural "expanded, {n} items"
+msgstr[0] ""
+msgstr[1] ""
 
 #. A text in Slint's own widgets
 #: slint:std-widgets

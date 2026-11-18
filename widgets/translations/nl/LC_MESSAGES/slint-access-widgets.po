@@ -33,6 +33,41 @@ msgctxt "access-widgets"
 msgid "More about {}"
 msgstr "Meer over {}"
 
+#: ui/notice.slint:26
+msgctxt "access-widgets"
+msgid "Information"
+msgstr "Informatie"
+
+#: ui/notice.slint:27
+msgctxt "access-widgets"
+msgid "Success"
+msgstr "Gelukt"
+
+#: ui/notice.slint:28
+msgctxt "access-widgets"
+msgid "Warning"
+msgstr "Waarschuwing"
+
+#: ui/notice.slint:29
+msgctxt "access-widgets"
+msgid "Error"
+msgstr "Fout"
+
+#: ui/notice.slint:30
+msgctxt "access-widgets"
+msgid "Close"
+msgstr "Sluiten"
+
+#: ui/notice.slint:32
+msgctxt "access-widgets"
+msgid "Close message: {}"
+msgstr "Melding sluiten: {}"
+
+#: ui/notice.slint:35
+msgctxt "access-widgets"
+msgid "{} is available"
+msgstr "{} is beschikbaar"
+
 #: ui/table.slint:62
 msgctxt "access-widgets"
 msgid "sorted ascending"

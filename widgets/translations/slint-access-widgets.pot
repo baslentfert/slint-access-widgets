@@ -31,6 +31,41 @@ msgctxt "access-widgets"
 msgid "More about {}"
 msgstr ""
 
+#: ui/notice.slint:26
+msgctxt "access-widgets"
+msgid "Information"
+msgstr ""
+
+#: ui/notice.slint:27
+msgctxt "access-widgets"
+msgid "Success"
+msgstr ""
+
+#: ui/notice.slint:28
+msgctxt "access-widgets"
+msgid "Warning"
+msgstr ""
+
+#: ui/notice.slint:29
+msgctxt "access-widgets"
+msgid "Error"
+msgstr ""
+
+#: ui/notice.slint:30
+msgctxt "access-widgets"
+msgid "Close"
+msgstr ""
+
+#: ui/notice.slint:32
+msgctxt "access-widgets"
+msgid "Close message: {}"
+msgstr ""
+
+#: ui/notice.slint:35
+msgctxt "access-widgets"
+msgid "{} is available"
+msgstr ""
+
 #: ui/table.slint:62
 msgctxt "access-widgets"
 msgid "sorted ascending"
