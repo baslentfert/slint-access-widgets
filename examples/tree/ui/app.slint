@@ -20,6 +20,7 @@ export component AppWindow inherits Window {
         AccessTree {
             label: "Folders";
             rows: root.rows;
+            indent-guides: always;
             expand(i) => { root.expand(i) }
             collapse(i) => { root.collapse(i); }
             parent-of(i) => { root.parent-of(i) }

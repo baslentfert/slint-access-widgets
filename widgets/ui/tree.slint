@@ -14,8 +14,16 @@
 
 import { Palette } from "std-widgets.slint";
 import { AccessTableView, AccessRow } from "table.slint";
-import { AccessAnnouncer } from "cells.slint";
+import { AccessAnnouncer, AccessColors } from "cells.slint";
 import { AccessFocus } from "focus.slint";
+
+// A built-in icon before the text, drawn by the tree (no image files): a
+// folder (open while expanded) or a file.
+export enum AccessTreeIcon { none, folder, file }
+
+// Thin vertical lines, one per level, from a node down along its children
+// (as the indent guides of VS Code; off in File Explorer, Finder and GTK).
+export enum AccessIndentGuides { none, on-hover, always }
 
 export struct AccessTreeRow {
     text: string,
@@ -23,6 +31,11 @@ export struct AccessTreeRow {
     level: int,
     has-children: bool,
     expanded: bool,
+    // Icons only show; screen readers don't read them (the kind should be in
+    // the text or follow from "expanded"/"collapsed"). `image` is your own
+    // (shown at 16 × 16 px) and wins over `icon` when set.
+    icon: AccessTreeIcon,
+    image: image,
 }
 
 export global AccessTreeTexts {
@@ -35,6 +48,28 @@ export global AccessTreeTexts {
     pure public function expanded-count(n: int) -> string {
         @tr("access-widgets" => "expanded, {n} item" | "expanded, {n} items" % n)
     }
+}
+
+// The built-in icons, 16 × 16 px, drawn as paths: a yellow folder (as in
+// File Explorer and Finder, light and dark), a page with a folded corner in
+// the text colour.
+component TreeGlyph inherits Path {
+    in property <AccessTreeIcon> icon;
+    in property <bool> open;
+    in property <brush> ink;
+    property <bool> folder: icon == AccessTreeIcon.folder;
+    width: 16px;
+    height: 16px;
+    viewbox-width: 16;
+    viewbox-height: 16;
+    accessible-role: none;
+    commands: !folder ? "M3.5 1.5 L9.5 1.5 L12.5 4.5 L12.5 14.5 L3.5 14.5 Z M9.5 1.5 L9.5 4.5 L12.5 4.5"
+        // Open: the back with its tab, and the front tilted open.
+        : open ? "M1.5 12.5 L1.5 3.5 C1.5 2.95 1.95 2.5 2.5 2.5 L6 2.5 L7.5 4 L12.5 4 C13.05 4 13.5 4.45 13.5 5 L13.5 6.5 M1.5 12.5 L3.5 7.2 C3.65 6.8 4 6.5 4.45 6.5 L14.6 6.5 C15.1 6.5 15.45 7 15.25 7.45 L13.25 12.9 C13.1 13.25 12.8 13.5 12.4 13.5 L2.5 13.5 C1.95 13.5 1.5 13.05 1.5 12.5 Z"
+        : "M1.5 3.5 C1.5 2.95 1.95 2.5 2.5 2.5 L6 2.5 L7.5 4 L13.5 4 C14.05 4 14.5 4.45 14.5 5 L14.5 12.5 C14.5 13.05 14.05 13.5 13.5 13.5 L2.5 13.5 C1.95 13.5 1.5 13.05 1.5 12.5 Z";
+    fill: folder ? (AccessColors.dark ? #E8B84F : #EAB23F) : transparent;
+    stroke: folder ? (AccessColors.dark ? #F3CE7A : #B9861C) : ink;
+    stroke-width: 1px;
 }
 
 export component AccessTree inherits Rectangle {
@@ -52,6 +87,9 @@ export component AccessTree inherits Rectangle {
     callback activated(row: int);
     // Type-ahead: as `AccessTable.find`.
     callback find(prefix: string, from: int) -> int;
+    // Lines along the levels: never (the default, as most file managers),
+    // while the mouse is on the tree or it has the focus, or always.
+    in property <AccessIndentGuides> indent-guides: none;
 
     public function focus-current() { view.focus-current(); }
 
@@ -83,69 +121,102 @@ export component AccessTree inherits Rectangle {
     vertical-stretch: 1;
     horizontal-stretch: 1;
 
-    view := AccessTableView {
-        label: root.label;
-        count: rows.length;
-        find(p, f) => { root.find(p, f) }
+    property <bool> guides: indent-guides == AccessIndentGuides.always
+        || (indent-guides == AccessIndentGuides.on-hover && (hover.has-hover || view.active));
 
-        for k in view.slots : r := AccessRow {
-            property <int> n: view.first + k;
-            property <AccessTreeRow> node: rows[n];
-            state: view.state;
-            index: n;
-            label: node.text;
-            expandable: node.has-children;
-            expanded: node.expanded;
-            description: AccessTreeTexts.level(node.level)
-                + (zeg-het && node.has-children ? ", " + (node.expanded ? AccessTreeTexts.expanded : AccessTreeTexts.collapsed) : "");
-            navigate(i, m) => { view.go-to(i); }
-            focus-changed(f) => { view.active = f; }
-            typed(t) => { view.type-ahead(t); }
-            activated(i) => { root.activated(i); }
-            toggled(i) => { toggle(i); }
-            horizontal(d) => {
-                if (d > 0) {
-                    // Right: open, or into the first child.
-                    if (node.has-children && !node.expanded) { open(n); }
-                    else if (node.expanded && n + 1 < rows.length) { view.go-to(n + 1); }
-                } else {
-                    // Left: close, or up to the parent.
-                    if (node.expanded) { shut(n); }
-                    else {
-                        let p = parent-of(n);
-                        if (p >= 0) { view.go-to(p); }
-                    }
-                }
-            }
+    // Around everything, so the mouse anywhere on the rows counts.
+    hover := TouchArea {
+        view := AccessTableView {
+            label: root.label;
+            count: rows.length;
+            find(p, f) => { root.find(p, f) }
 
-            HorizontalLayout {
-                padding-left: 6px + (node.level - 1) * 20px;
-                spacing: 4px;
-                // The triangle: click to open or close.
-                Rectangle {
-                    width: 20px;
-                    Text {
-                        text: !node.has-children ? "" : node.expanded ? "▾" : "▸";
-                        color: r.text-color;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                        accessible-role: none;
-                    }
-                    TouchArea {
-                        enabled: node.has-children;
-                        clicked => {
-                            AccessFocus.keyboard = false;
-                            view.go-to(n);
-                            toggle(n);
+            for k in view.slots : r := AccessRow {
+                property <int> n: view.first + k;
+                property <AccessTreeRow> node: rows[n];
+                state: view.state;
+                index: n;
+                label: node.text;
+                expandable: node.has-children;
+                expanded: node.expanded;
+                description: AccessTreeTexts.level(node.level)
+                    + (zeg-het && node.has-children ? ", " + (node.expanded ? AccessTreeTexts.expanded : AccessTreeTexts.collapsed) : "");
+                navigate(i, m) => { view.go-to(i); }
+                focus-changed(f) => { view.active = f; }
+                typed(t) => { view.type-ahead(t); }
+                activated(i) => { root.activated(i); }
+                toggled(i) => { toggle(i); }
+                horizontal(d) => {
+                    if (d > 0) {
+                        // Right: open, or into the first child.
+                        if (node.has-children && !node.expanded) { open(n); }
+                        else if (node.expanded && n + 1 < rows.length) { view.go-to(n + 1); }
+                    } else {
+                        // Left: close, or up to the parent.
+                        if (node.expanded) { shut(n); }
+                        else {
+                            let p = parent-of(n);
+                            if (p >= 0) { view.go-to(p); }
                         }
                     }
                 }
-                Text {
-                    text: node.text;
-                    color: r.text-color;
-                    vertical-alignment: center;
-                    overflow: elide;
+
+                // One guide per level above this row, under the triangle of the
+                // node it belongs to; on a selected row in the row's text colour.
+                for j in (root.guides ? node.level - 1 : 0) : Rectangle {
+                    x: 6px + j * 20px + 9.5px;
+                    width: 1px;
+                    height: r.height;
+                    background: r.selected && view.state.active ? r.text-color.transparentize(0.5) : AccessColors.guide;
                     accessible-role: none;
+                }
+                HorizontalLayout {
+                    padding-left: 6px + (node.level - 1) * 20px;
+                    spacing: 4px;
+                    // The triangle: click to open or close.
+                    Rectangle {
+                        width: 20px;
+                        Text {
+                            text: !node.has-children ? "" : node.expanded ? "▾" : "▸";
+                            color: r.text-color;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            accessible-role: none;
+                        }
+                        TouchArea {
+                            enabled: node.has-children;
+                            clicked => {
+                                AccessFocus.keyboard = false;
+                                view.go-to(n);
+                                toggle(n);
+                            }
+                        }
+                    }
+                    if node.image.width > 0 || node.icon != AccessTreeIcon.none: VerticalLayout {
+                        alignment: center;
+                        if node.image.width > 0: Image {
+                            source: node.image;
+                            width: 16px;
+                            height: 16px;
+                            image-fit: contain;
+                            accessible-role: none;
+                        }
+                        if node.image.width == 0: TreeGlyph {
+                            icon: node.icon;
+                            open: node.expanded;
+                            ink: r.text-color;
+                            // Here too: on the component's own root alone it
+                            // still showed up as an empty node over AT-SPI.
+                            accessible-role: none;
+                        }
+                    }
+                    Text {
+                        text: node.text;
+                        color: r.text-color;
+                        vertical-alignment: center;
+                        overflow: elide;
+                        accessible-role: none;
+                    }
                 }
             }
         }

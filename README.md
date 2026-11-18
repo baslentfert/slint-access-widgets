@@ -132,6 +132,18 @@ folder that turns out empty says "Empty". `TreeRows` (Rust) keeps the
 visible rows and loads children the first time a node opens, so they can
 come from a disk or another computer.
 
+Rows can have an icon before the text: a built-in folder (open while
+expanded) or file, drawn by the tree (`icon: AccessTreeIcon.folder`), or
+your own `image` (16 × 16 px). `TreeRowInfo::branch` says a node was a
+folder, also when it turned out empty. Icons are decoration: screen readers
+don't hear them (the text and "expanded"/"collapsed" already say what a row
+is). `indent-guides` draws a thin line per level, from a folder down along
+its contents: `none` (the default, as in File Explorer, Finder and GTK),
+`on-hover` (while the mouse is on the tree or it has the focus, as the VS
+Code explorer does by default) or `always`. They use the text colour, faint
+(`AccessColors.guide`), so they follow light, dark and high-contrast
+palettes. See `docs/research-tree-icons.md`.
+
 ## AccessTransferList
 
 Two lists, items move between them ("Available" and "Chosen"; a dual

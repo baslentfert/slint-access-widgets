@@ -29,7 +29,15 @@ fn main() {
     let tree: Rc<TreeRows<AccessTreeRow>> = Rc::new_cyclic(|weak: &std::rc::Weak<TreeRows<AccessTreeRow>>| {
         let weak = weak.clone();
         TreeRows::new(
-            |r: &TreeRowInfo| AccessTreeRow { text: r.text.clone().into(), level: r.level, has_children: r.has_children, expanded: r.expanded },
+            |r: &TreeRowInfo| AccessTreeRow {
+                text: r.text.clone().into(),
+                level: r.level,
+                has_children: r.has_children,
+                expanded: r.expanded,
+                // A folder stays a folder when it turns out empty.
+                icon: if r.branch { AccessTreeIcon::Folder } else { AccessTreeIcon::File },
+                ..Default::default()
+            },
             move |node| {
                 let Some(t) = weak.upgrade() else { return Vec::new() };
                 let mut parts = vec![t.text_of(node).unwrap_or_default()];

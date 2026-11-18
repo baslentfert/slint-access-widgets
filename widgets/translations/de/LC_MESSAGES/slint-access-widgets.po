@@ -113,7 +113,7 @@ msgctxt "access-widgets"
 msgid "column {} of {}"
 msgstr "Spalte {} von {}"
 
-#: ui/table.slint:76 ui/tree.slint:30
+#: ui/table.slint:76 ui/tree.slint:43
 msgctxt "access-widgets"
 msgid "level {}"
 msgstr "Ebene {}"
@@ -247,22 +247,22 @@ msgctxt "access-widgets"
 msgid "position {} of {}"
 msgstr "Position {} von {}"
 
-#: ui/tree.slint:32
+#: ui/tree.slint:45
 msgctxt "access-widgets"
 msgid "expanded"
 msgstr "erweitert"
 
-#: ui/tree.slint:33
+#: ui/tree.slint:46
 msgctxt "access-widgets"
 msgid "collapsed"
 msgstr "reduziert"
 
-#: ui/tree.slint:34
+#: ui/tree.slint:47
 msgctxt "access-widgets"
 msgid "Empty"
 msgstr "Leer"
 
-#: ui/tree.slint:36
+#: ui/tree.slint:49
 msgctxt "access-widgets"
 msgid "expanded, {n} item"
 msgid_plural "expanded, {n} items"

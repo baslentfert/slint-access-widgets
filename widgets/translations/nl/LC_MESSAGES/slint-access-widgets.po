@@ -113,7 +113,7 @@ msgctxt "access-widgets"
 msgid "column {} of {}"
 msgstr "kolom {} van {}"
 
-#: ui/table.slint:76 ui/tree.slint:30
+#: ui/table.slint:76 ui/tree.slint:43
 msgctxt "access-widgets"
 msgid "level {}"
 msgstr "niveau {}"
@@ -247,22 +247,22 @@ msgctxt "access-widgets"
 msgid "position {} of {}"
 msgstr "positie {} van {}"
 
-#: ui/tree.slint:32
+#: ui/tree.slint:45
 msgctxt "access-widgets"
 msgid "expanded"
 msgstr "uitgeklapt"
 
-#: ui/tree.slint:33
+#: ui/tree.slint:46
 msgctxt "access-widgets"
 msgid "collapsed"
 msgstr "ingeklapt"
 
-#: ui/tree.slint:34
+#: ui/tree.slint:47
 msgctxt "access-widgets"
 msgid "Empty"
 msgstr "Leeg"
 
-#: ui/tree.slint:36
+#: ui/tree.slint:49
 msgctxt "access-widgets"
 msgid "expanded, {n} item"
 msgid_plural "expanded, {n} items"

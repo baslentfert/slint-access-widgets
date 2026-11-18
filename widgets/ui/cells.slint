@@ -23,6 +23,9 @@ export global AccessColors {
     out property <brush> warning-foreground: dark ? #F98845 : #8A3707;
     out property <brush> error-foreground: dark ? #DC626D : #B10E1C;
     out property <brush> info-foreground: dark ? #479EF5 : #0F6CBD;
+    // Thin decorative lines (a tree's indent guides): the text colour, faint,
+    // so they follow light, dark and high-contrast palettes.
+    out property <brush> guide: Palette.foreground.transparentize(0.72);
 }
 
 // A check box look (e.g. "selected"). 16 px box inside a 24 px area (WCAG

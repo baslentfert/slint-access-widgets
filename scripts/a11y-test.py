@@ -261,6 +261,8 @@ SCENARIOS = {
         ("Down", 'list item "2026" #4', None),
         ("Right", 'desc="level 3, expanded"', "expanded, 3 items"),
         ("Right", 'list item "plan.pdf" #5', None),
+        # Folder and file icons are decoration: not even an empty node.
+        ("gone", 'unknown ""', None),
         # Left: up to the parent, then closes it, then up again.
         ("Left", 'list item "2026" #4', None),
         ("Left", 'desc="level 3, collapsed"', "collapsed"),
@@ -310,6 +312,8 @@ SCENARIOS = {
         ("Return", 'button "Send"', "Error: 3 files could not be sent. The other computer has no room left. Try again is available"),
         ("find", '"Error: 3 files could not be sent"', None),
         ("find", 'button "Close message: 3 files could not be sent"', None),
+        # The icons are decoration: not even an empty node.
+        ("gone", 'unknown ""', None),
         # A snackbar with a button: announced, never takes the focus...
         ("Tab", 'button "Delete a file"', None),
         ("Return", 'button "Delete a file"', "File deleted. Undo is available"),

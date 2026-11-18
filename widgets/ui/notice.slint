@@ -171,7 +171,9 @@ export component AccessAlert inherits Rectangle {
         VerticalLayout {
             alignment: start;
             padding-top: 1px;
-            Icon { severity: root.severity; }
+            // (role none here as well: on the component's root alone it
+            // still showed up as an empty node over AT-SPI)
+            Icon { severity: root.severity; accessible-role: none; }
         }
         VerticalLayout {
             spacing: 2px;
@@ -282,7 +284,7 @@ export component AccessSnackbar inherits Rectangle {
                 spacing: 10px;
                 if severity != AccessSeverity.info: VerticalLayout {
                     alignment: center;
-                    Icon { severity: root.severity; mark: Palette.foreground; tint: Palette.background; }
+                    Icon { severity: root.severity; mark: Palette.foreground; tint: Palette.background; accessible-role: none; }
                 }
                 Text {
                     text: root.text;

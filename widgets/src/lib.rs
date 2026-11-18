@@ -342,7 +342,15 @@ impl LazyRows {
 ///
 /// ```ignore
 /// let tree = Rc::new(TreeRows::new(
-///     |r: &TreeRowInfo| AccessTreeRow { text: r.text.clone().into(), level: r.level, has_children: r.has_children, expanded: r.expanded },
+///     |r: &TreeRowInfo| AccessTreeRow {
+///         text: r.text.clone().into(),
+///         level: r.level,
+///         has_children: r.has_children,
+///         expanded: r.expanded,
+///         // Optional: a folder or file icon (or your own `image`).
+///         icon: if r.branch { AccessTreeIcon::Folder } else { AccessTreeIcon::File },
+///         ..Default::default()
+///     },
 ///     |node| children_of(node), // (text, has_children) per child
 /// ));
 /// tree.set_roots(vec![("Documents".into(), true), ("Pictures".into(), true)]);
@@ -367,6 +375,9 @@ pub struct TreeRowInfo {
     pub level: i32,
     pub has_children: bool,
     pub expanded: bool,
+    /// Given as having children when it was added. Stays true when it
+    /// turns out empty (no triangle any more, but still a folder icon).
+    pub branch: bool,
 }
 
 struct TreeNode {
@@ -374,6 +385,7 @@ struct TreeNode {
     level: i32,
     parent: Option<usize>,
     has_children: bool,
+    branch: bool,
     /// `None` until loaded.
     children: Option<Vec<usize>>,
     expanded: bool,
@@ -402,7 +414,7 @@ impl<R: Clone + 'static> TreeRows<R> {
         let mut nodes = self.nodes.borrow_mut();
         nodes.clear();
         for (text, has_children) in roots {
-            nodes.push(TreeNode { text, level: 1, parent: None, has_children, children: None, expanded: false });
+            nodes.push(TreeNode { text, level: 1, parent: None, has_children, branch: has_children, children: None, expanded: false });
         }
         let ids: Vec<usize> = (0..nodes.len()).collect();
         drop(nodes);
@@ -412,7 +424,7 @@ impl<R: Clone + 'static> TreeRows<R> {
 
     fn info(&self, id: usize) -> TreeRowInfo {
         let n = &self.nodes.borrow()[id];
-        TreeRowInfo { text: n.text.clone(), level: n.level, has_children: n.has_children, expanded: n.expanded }
+        TreeRowInfo { text: n.text.clone(), level: n.level, has_children: n.has_children, expanded: n.expanded, branch: n.branch }
     }
 
     fn row(&self, id: usize) -> R {
@@ -455,7 +467,7 @@ impl<R: Clone + 'static> TreeRows<R> {
             let mut ids = Vec::with_capacity(loaded.len());
             for (text, has_children) in loaded {
                 ids.push(nodes.len());
-                nodes.push(TreeNode { text, level, parent: Some(id), has_children, children: None, expanded: false });
+                nodes.push(TreeNode { text, level, parent: Some(id), has_children, branch: has_children, children: None, expanded: false });
             }
             nodes[id].has_children = !ids.is_empty();
             nodes[id].children = Some(ids);
@@ -704,7 +716,11 @@ mod tests {
     fn tree_opens_closes_and_finds_parents() {
         // a (b (d), c)  e
         let t = TreeRows::new(
-            |r: &TreeRowInfo| format!("{}{}{}", "  ".repeat(r.level as usize - 1), if r.expanded { "-" } else if r.has_children { "+" } else { " " }, r.text),
+            // A folder that turned out empty is still a branch: ".".
+            |r: &TreeRowInfo| {
+                let mark = if r.expanded { "-" } else if r.has_children { "+" } else if r.branch { "." } else { " " };
+                format!("{}{}{}", "  ".repeat(r.level as usize - 1), mark, r.text)
+            },
             |node| match node {
                 0 => vec![("b".into(), true), ("c".into(), false)],
                 2 => vec![("d".into(), false)],
@@ -726,9 +742,10 @@ mod tests {
         assert_eq!(rows(), ["+a", "+e"]);
         t.expand(0);
         assert_eq!(rows(), ["-a", "  -b", "     d", "   c", "+e"]);
-        // A node without children turns out to have none: no triangle.
+        // A node with children turns out to have none: no triangle, but
+        // still a branch (a folder icon).
         assert_eq!(t.expand(4), 0);
-        assert_eq!(rows(), ["-a", "  -b", "     d", "   c", " e"]);
+        assert_eq!(rows(), ["-a", "  -b", "     d", "   c", ".e"]);
         assert_eq!(t.text_at(2).as_deref(), Some("d"));
     }
 
