@@ -10,6 +10,7 @@
 
 import { Palette } from "std-widgets.slint";
 import { AccessFocus } from "focus.slint";
+import { AccessColors } from "cells.slint";
 
 export struct AccessMenuItem {
     title: string,
@@ -38,7 +39,7 @@ export component AccessMenuEntry inherits Rectangle {
     callback hovered();
 
     height: max(28px, t.preferred-height + 10px);
-    background: current ? Palette.selection-background : transparent;
+    background: current ? AccessColors.selection-background : transparent;
 
     accessible-role: list-item;
     accessible-label: item.title;
@@ -98,7 +99,7 @@ export component AccessMenuEntry inherits Rectangle {
         Text {
             width: 16px;
             text: item.checkable && item.checked ? "✓" : "";
-            color: current ? Palette.selection-foreground : Palette.foreground;
+            color: current ? AccessColors.selection-foreground : Palette.foreground;
             vertical-alignment: center;
             accessible-role: none;
         }
@@ -106,7 +107,7 @@ export component AccessMenuEntry inherits Rectangle {
             text: item.title;
             // Unavailable: a lighter colour and "unavailable" for screen
             // readers (inactive controls are exempt from contrast rules).
-            color: current ? Palette.selection-foreground : Palette.foreground;
+            color: current ? AccessColors.selection-foreground : Palette.foreground;
             opacity: item.enabled ? 1 : 0.5;
             vertical-alignment: center;
             accessible-role: none;

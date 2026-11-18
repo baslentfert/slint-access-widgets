@@ -15,7 +15,7 @@
 
 import { LineEdit, Palette } from "std-widgets.slint";
 import { AccessFocus } from "focus.slint";
-import { AccessAnnouncer } from "cells.slint";
+import { AccessAnnouncer, AccessColors } from "cells.slint";
 
 export global AccessAutocompleteTexts {
     in-out property <string> suggestions: @tr("access-widgets" => "Suggestions");
@@ -40,7 +40,7 @@ component Suggestion inherits Rectangle {
     callback hovered();
 
     min-height: max(28px, t.preferred-height + 10px);
-    background: current ? Palette.selection-background : touch.has-hover ? Palette.alternate-background : transparent;
+    background: current ? AccessColors.selection-background : touch.has-hover ? Palette.alternate-background : transparent;
 
     accessible-role: list-item;
     accessible-label: text;
@@ -84,7 +84,7 @@ component Suggestion inherits Rectangle {
         x: 10px;
         width: parent.width - 20px;
         text: root.text;
-        color: current ? Palette.selection-foreground : Palette.foreground;
+        color: current ? AccessColors.selection-foreground : Palette.foreground;
         vertical-alignment: center;
         overflow: elide;
         accessible-role: none;
@@ -92,7 +92,7 @@ component Suggestion inherits Rectangle {
     // Visible focus (WCAG 2.4.7), only after keyboard use.
     Rectangle {
         border-width: fs.has-focus && AccessFocus.show ? 2px : 0px;
-        border-color: current ? Palette.selection-foreground : Palette.accent-background;
+        border-color: current ? AccessColors.selection-foreground : Palette.accent-background;
         border-radius: 2px;
     }
 }

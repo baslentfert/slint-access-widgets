@@ -57,7 +57,10 @@ A drop-in for `StandardTableView` (same `columns` and `rows`):
 - **Cut-off text gets a tooltip** with all of it, for the mouse and for the
   keyboard; it stays while you hover it, Escape closes it (WCAG 1.4.13).
 - **Focus ring only when you use the keyboard** (like `:focus-visible`);
-  the selection always shows.
+  the selection always shows, also when the focus is elsewhere: then in a
+  grey with at least 3:1 contrast against the background, and readable text
+  on it (WCAG 1.4.11, 1.4.3), worked out from the style's own colours
+  (`AccessColors`), so in light, dark and high-contrast palettes alike.
 - **Compact, standard or comfortable rows** (24 / 32 / 40 px, growing with
   the text size); **empty and loading states** that are shown and announced;
   **sticky header**.

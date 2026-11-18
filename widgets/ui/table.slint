@@ -17,6 +17,7 @@
 
 import { Palette, ScrollView } from "std-widgets.slint";
 import { AccessFocus } from "focus.slint";
+import { AccessColors } from "cells.slint";
 import { AccessMenu, AccessMenuEntry, AccessMenuItem } from "menu.slint";
 
 // Row height: compact 24 px, standard 32 px, comfortable 40 px (as in
@@ -308,9 +309,10 @@ export component AccessRow inherits Rectangle {
     in property <brush> background-tint: transparent;
     // Selected rows all get the selection colour while the table has the
     // focus; the focused one is told apart by its border.
-    background: selected ? (state.active ? Palette.selection-background : Palette.alternate-background) : (touch.has-hover ? Palette.alternate-background : background-tint);
+    // Without the focus a grey that still stands out (3:1, `AccessColors`).
+    background: selected ? (state.active ? AccessColors.selection-background : AccessColors.inactive-selection-background) : (touch.has-hover ? Palette.alternate-background : background-tint);
     // Text colour to use on this row (contrast on the selection colour).
-    out property <brush> text-color: selected && state.active ? Palette.selection-foreground : Palette.foreground;
+    out property <brush> text-color: !selected ? Palette.foreground : state.active ? AccessColors.selection-foreground : AccessColors.inactive-selection-foreground;
 
     accessible-role: list-item;
     accessible-label: label;
@@ -434,7 +436,7 @@ export component AccessRow inherits Rectangle {
         width: parent.width - 2px;
         height: parent.height - 2px;
         border-width: fs.has-focus && AccessFocus.show ? 2px : 0px;
-        border-color: selected && state.active ? Palette.selection-foreground : Palette.accent-background;
+        border-color: selected && state.active ? AccessColors.selection-foreground : Palette.accent-background;
         border-radius: 2px;
     }
 }

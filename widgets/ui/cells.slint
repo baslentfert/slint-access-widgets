@@ -26,6 +26,66 @@ export global AccessColors {
     // Thin decorative lines (a tree's indent guides): the text colour, faint,
     // so they follow light, dark and high-contrast palettes.
     out property <brush> guide: Palette.foreground.transparentize(0.72);
+
+    // Selected items (rows, tree rows, menu items, suggestions), worked out
+    // from the active style's palette so that the selection is seen in every
+    // style, light, dark and high contrast: the fill has 3:1 or more against
+    // the list's background (WCAG 1.4.11) and its text 4.5:1 or more against
+    // the fill (WCAG 1.4.3).
+    // - `selection-*`: while the list has the focus. The style's own
+    //   selection colour when it reaches 3:1 (fluent, cosmic); otherwise
+    //   (the half-transparent selections of cupertino and material) the
+    //   accent colour.
+    // - `inactive-selection-*`: while the focus is elsewhere. Grey, as in
+    //   File Explorer, Finder and GTK, but never so light that it vanishes:
+    //   with the normal text colour when 3:1 and 4.5:1 both fit, otherwise
+    //   darker (lighter in dark mode) with black or white text.
+    out property <color> selection-background: own-selection-ok ? own-selection : opaque(Palette.accent-background);
+    out property <color> selection-foreground: own-selection-ok ? opaque(Palette.selection-foreground) : black-or-white(selection-background);
+    out property <color> inactive-selection-background: grey(fill);
+    out property <color> inactive-selection-foreground: fits-with-text ? text : black-or-white(inactive-selection-background);
+
+    // WCAG relative luminance and contrast ratio.
+    pure public function luminance(c: color) -> float {
+        0.2126 * linear(c.red) + 0.7152 * linear(c.green) + 0.0722 * linear(c.blue)
+    }
+    pure public function contrast(a: color, b: color) -> float {
+        (max(luminance(a), luminance(b)) + 0.05) / (min(luminance(a), luminance(b)) + 0.05)
+    }
+    pure function linear(v: int) -> float {
+        v / 255 <= 0.04045 ? v / 255 / 12.92 : pow((v / 255 + 0.055) / 1.055, 2.4)
+    }
+    // A colour as drawn on the list's background (styles use see-through
+    // colours).
+    pure function opaque(c: color) -> color {
+        rgb(c.red * c.alpha / 255 + base.red * (1 - c.alpha / 255),
+            c.green * c.alpha / 255 + base.green * (1 - c.alpha / 255),
+            c.blue * c.alpha / 255 + base.blue * (1 - c.alpha / 255))
+    }
+    // The grey with luminance `l`.
+    pure function grey(l: float) -> color {
+        let v = l <= 0.0031308 ? 12.92 * l : 1.055 * pow(l, 1 / 2.4) - 0.055;
+        rgb(v * 255, v * 255, v * 255)
+    }
+    pure function black-or-white(c: color) -> color {
+        contrast(c, #000000) >= contrast(c, #ffffff) ? #000000 : #ffffff
+    }
+
+    property <color> base: Palette.background;
+    property <color> own-selection: opaque(Palette.selection-background);
+    property <bool> own-selection-ok: contrast(own-selection, base) >= 3;
+    property <color> text: opaque(Palette.foreground);
+    property <float> lb: luminance(base);
+    property <float> lt: luminance(text);
+    property <bool> light: lb > lt;
+    // A little over 3:1 and 4.5:1, so rounding to whole colour values never
+    // drops below them.
+    property <float> fill-ratio: 3.1;
+    property <float> text-ratio: 4.6;
+    // The fill closest to the background that still has 3:1 against it;
+    // the normal text stays on it when that is still 4.5:1 away.
+    property <float> fill: max(0, min(1, light ? (lb + 0.05) / fill-ratio - 0.05 : fill-ratio * (lb + 0.05) - 0.05));
+    property <bool> fits-with-text: light ? text-ratio * (lt + 0.05) - 0.05 <= fill : (lt + 0.05) / text-ratio - 0.05 >= fill;
 }
 
 // A check box look (e.g. "selected"). 16 px box inside a 24 px area (WCAG

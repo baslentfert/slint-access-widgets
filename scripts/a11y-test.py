@@ -77,10 +77,34 @@ def find(a, text):
     return None
 
 
+def all_nodes(a):
+    """`a` and everything under it."""
+    out = [a]
+    try:
+        for c in a:
+            if c is not None:
+                out += all_nodes(c)
+    except Exception:
+        pass
+    return out
+
+
+def find_list(app, name):
+    """The list or table called `name`."""
+    for a in all_nodes(app):
+        try:
+            if a.name == name and a.getRoleName() in ("list", "list box", "table"):
+                return a
+        except Exception:
+            pass
+    return None
+
+
 # (key, text the focus must contain, text an announcement must contain).
 # Besides keys: "find" (an element with that text must exist, focused or
 # not), "gone" (it must not), "hover" (the mouse onto it), "unhover" (the
-# mouse into the window's top left corner), "wait" (1 s) or "wait N" (N s).
+# mouse into the window's top left corner), "wait" (1 s) or "wait N" (N s),
+# "selected" (in the list called <focus text>: "<selected> of <items>").
 SCENARIOS = {
     "gallery": [
         ("Tab", 'entry "Filter files"', None),
@@ -296,6 +320,13 @@ SCENARIOS = {
         # In order: Alt+Up, and the new place is announced.
         ("alt+Up", 'list item "Owner" #4 selected', "position 4 of 5"),
         ("Home", 'list item "Name" #1 selected', None),
+        # "Select all" in the second list selects all its items there.
+        ("shift+Tab", 'check box "Select all in Shown" unchecked', None),
+        ("space", 'check box "Select all in Shown" checked', "5 selected"),
+        ("selected", "Shown", "5 of 5"),
+        ("Tab", 'list item "Name" #1 selected', None),
+        ("Home", 'list item "Name" #1 selected', None),
+        ("selected", "Shown", "1 of 5"),
         # Delete moves back.
         ("Delete", 'list item "Size" #1 selected', "Moved to Available: 1 item"),
         ("ctrl+a", 'list item "Size" #1 selected', "4 selected"),
@@ -431,6 +462,18 @@ def run(name):
                 ok = (f is not None) == (key == "find")
                 print(f"{'ok  ' if ok else 'FAIL'} {key:<10} {describe(f) if f else want_focus + ' (not there)'}")
                 if not ok:
+                    return False
+                continue
+            if key == "selected":
+                # In the list called `want_focus`: "N of M" items selected.
+                lst = find_list(app, want_focus)
+                items = [c for c in all_nodes(lst) if c.getRoleName() == "list item"] if lst else []
+                n = sum(1 for c in items if c.getState().contains(pyatspi.STATE_SELECTED))
+                got = f"{n} of {len(items)}"
+                ok = got == want_heard
+                print(f"{'ok  ' if ok else 'FAIL'} selected   {want_focus}: {got}")
+                if not ok:
+                    print(f"     wanted {want_heard}")
                     return False
                 continue
             if key in ("hover", "unhover"):

@@ -167,7 +167,7 @@ export component AccessTree inherits Rectangle {
                     x: 6px + j * 20px + 9.5px;
                     width: 1px;
                     height: r.height;
-                    background: r.selected && view.state.active ? r.text-color.transparentize(0.5) : AccessColors.guide;
+                    background: r.selected ? r.text-color.transparentize(0.5) : AccessColors.guide;
                     accessible-role: none;
                 }
                 HorizontalLayout {
