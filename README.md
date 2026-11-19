@@ -10,7 +10,7 @@ cargo add slint-access-widgets
 cargo add --build slint-access-widgets
 ```
 
-**Status: young (0.2).** Tested automatically with the Linux accessibility
+**Status: young (0.3).** Tested automatically with the Linux accessibility
 bus (AT-SPI, what Orca reads); Windows (NVDA, Narrator) and macOS
 (VoiceOver) still to be tested.
 

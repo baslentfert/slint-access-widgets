@@ -1884,14 +1884,14 @@ dependencies = [
 
 [[package]]
 name = "slint-a11y-check"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "windows",
 ]
 
 [[package]]
 name = "slint-access-widgets"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arboard",
  "slint",
