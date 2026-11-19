@@ -40,6 +40,8 @@ def describe(a):
         d += " checked" if st.contains(pyatspi.STATE_CHECKED) else " unchecked"
     if not st.contains(pyatspi.STATE_ENABLED):
         d += " unavailable"
+    if a.getRoleName() == "slider":
+        d += f" value={round(a.queryValue().currentValue)}"
     if st.contains(pyatspi.STATE_EXPANDABLE):
         d += " expanded" if st.contains(pyatspi.STATE_EXPANDED) else " collapsed"
     # (AccessKit doesn't pass "expanded" to AT-SPI yet: AccessKit #824.
@@ -464,6 +466,29 @@ SCENARIOS = {
         ("find", 'label "Folders in Projects:"', None),
         ("shift+Tab", 'button "Documents"', None),
         ("space", 'button "Documents, current page"', None),
+    ],
+    "splitter": [
+        ("Tab", 'button "Something in Folders"', None),
+        # Named after the primary pane; its size from 0 (folded away) to 100.
+        ("Tab", 'slider "Folders" value=52', None),
+        ("Right", 'slider "Folders" value=56', None),
+        ("Right", 'slider "Folders" value=60', None),
+        ("shift+Left", 'slider "Folders" value=45', None),
+        # Home: as small as allowed (folded away); End: as large as allowed.
+        ("Home", 'slider "Folders" value=0', None),
+        ("End", 'slider "Folders" value=100', None),
+        # Enter folds the pane away, and brings it back where it was.
+        ("Return", 'slider "Folders" value=0', None),
+        ("Return", 'slider "Folders" value=100', None),
+        ("Tab", 'button "Something in Files"', None),
+        # Panes above each other: Up and Down; the primary pane is below the
+        # bar here, so Up makes it larger.
+        ("Tab", 'slider "Preview" value=53', None),
+        ("Up", 'slider "Preview" value=59', None),
+        ("Down", 'slider "Preview" value=53', None),
+        ("Left", 'slider "Preview" value=53', None),
+        ("Return", 'slider "Preview" value=0', None),
+        ("Return", 'slider "Preview" value=53', None),
     ],
     "remote": [
         ("Tab", 'entry "Search on the server"', None),

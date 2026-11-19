@@ -1,0 +1,46 @@
+// Panes with splitters: folders | files side by side, and a preview under
+// the files.
+
+import { AccessSplitter } from "@access-widgets";
+import { Button, Palette } from "std-widgets.slint";
+
+component Pane inherits Rectangle {
+    in property <string> title;
+    background: Palette.alternate-background;
+    clip: true;
+    VerticalLayout {
+        padding: 8px;
+        alignment: start;
+        Text { text: title; font-weight: 700; }
+        Button { text: "Something in " + title; }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "Splitter";
+    preferred-width: 720px;
+    preferred-height: 460px;
+
+    HorizontalLayout {
+        Pane { title: "Folders"; width: folders.position; }
+        folders := AccessSplitter {
+            label: "Folders";
+            position: 220px;
+            minimum: 120px;
+            maximum: 420px;
+        }
+        VerticalLayout {
+            Pane { title: "Files"; }
+            preview := AccessSplitter {
+                label: "Preview";
+                orientation: vertical;
+                // The preview is below the bar: Up makes it larger.
+                primary-first: false;
+                position: 160px;
+                minimum: 80px;
+                maximum: 300px;
+            }
+            Pane { title: "Preview"; height: preview.position; }
+        }
+    }
+}

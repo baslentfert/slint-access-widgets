@@ -1,0 +1,148 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// A splitter between two panes, after the WAI-ARIA APG Window Splitter
+// pattern (https://www.w3.org/WAI/ARIA/apg/patterns/windowsplitter/):
+//
+// - A Tab stop of its own, named after the first ("primary") pane, e.g.
+//   "Folders"; its value is that pane's size, 0 to 100 (smallest to
+//   largest).
+// - The arrows move it: Left/Right for panes side by side, Up/Down for
+//   panes above each other; Shift moves it further.
+// - Home: the primary pane as small as allowed; End: as large as allowed.
+// - Enter folds the primary pane away (when `collapsible`), and Enter again
+//   brings it back where it was.
+// - Dragging with the mouse; a double click folds and unfolds too.
+//
+// Slint 1.19 has no separator role: screen readers get a slider with the
+// pane's name and value (the same value, minimum and maximum the APG gives
+// the separator).
+//
+// The splitter is the bar only; the panes are yours:
+//     HorizontalLayout {
+//         Rectangle { width: split.position; /* folders */ }
+//         split := AccessSplitter { label: "Folders"; position: 240px; minimum: 120px; maximum: 480px; }
+//         Rectangle { /* files */ }
+//     }
+
+import { Palette } from "std-widgets.slint";
+import { AccessFocus } from "focus.slint";
+
+export component AccessSplitter inherits Rectangle {
+    // The primary pane's name, e.g. "Folders".
+    in property <string> label;
+    // Panes side by side (a vertical bar), or above each other.
+    in property <Orientation> orientation: horizontal;
+    // The primary pane's size.
+    in-out property <length> position: 200px;
+    // Smallest and largest size of the primary pane when open.
+    in property <length> minimum: 80px;
+    in property <length> maximum: 600px;
+    // How far one arrow press moves it (Shift: four times as far).
+    in property <length> step: 16px;
+    // The primary pane is before the bar (left, above); false: after it
+    // (right, below), so the arrows and the mouse move the other way round.
+    in property <bool> primary-first: true;
+    // Enter (and a double click) folds the primary pane away to
+    // `collapsed-size`, and brings it back.
+    in property <bool> collapsible: true;
+    in property <length> collapsed-size: 0px;
+    out property <bool> collapsed: collapsible && position <= collapsed-size;
+
+    // The position changed by the user (keys or mouse).
+    callback moved(position: length);
+
+    property <bool> across: orientation == Orientation.horizontal;
+    property <float> sign: primary-first ? 1 : -1;
+    property <length> low: collapsible ? min(collapsed-size, minimum) : minimum;
+    // Where Enter brings it back to.
+    property <length> before-collapse: position;
+
+    function set(p: length) {
+        let v = max(low, min(maximum, p));
+        // Between folded and the smallest open size: one or the other.
+        let snapped = collapsible && v < minimum ? (v < (collapsed-size + minimum) / 2 ? collapsed-size : minimum) : v;
+        if (snapped != position) {
+            position = snapped;
+            moved(position);
+        }
+    }
+    function toggle() {
+        if (!collapsible) { return; }
+        if (collapsed) {
+            set(max(minimum, before-collapse));
+        } else {
+            before-collapse = position;
+            set(collapsed-size);
+        }
+    }
+
+    // 8 px across: easy to hit, and the line in the middle.
+    min-width: across ? 8px : 0;
+    max-width: across ? 8px : 100000px;
+    min-height: across ? 0 : 8px;
+    max-height: across ? 100000px : 8px;
+    horizontal-stretch: across ? 0 : 1;
+    vertical-stretch: across ? 1 : 0;
+
+    accessible-role: slider;
+    accessible-label: label;
+    accessible-orientation: orientation;
+    accessible-value: round((position - low) / max(1px, maximum - low) * 100);
+    accessible-value-minimum: 0;
+    accessible-value-maximum: 100;
+    accessible-value-step: round(step / max(1px, maximum - low) * 100);
+    accessible-action-increment => { set(position + step); }
+    accessible-action-decrement => { set(position - step); }
+    accessible-action-set-value(v) => { set(low + v.to-float() / 100 * (maximum - low)); }
+    accessible-action-default => { toggle(); }
+
+    // The line itself, thin; thicker and in the accent colour while used.
+    Rectangle {
+        x: across ? (parent.width - self.width) / 2 : 0;
+        y: across ? 0 : (parent.height - self.height) / 2;
+        width: across ? (touch.has-hover || touch.pressed || fs.has-focus ? 3px : 1px) : parent.width;
+        height: across ? parent.height : (touch.has-hover || touch.pressed || fs.has-focus ? 3px : 1px);
+        background: touch.has-hover || touch.pressed || fs.has-focus ? Palette.accent-background : Palette.border;
+    }
+    // Visible focus (WCAG 2.4.7), after keyboard use.
+    Rectangle {
+        border-width: fs.has-focus && AccessFocus.show ? 2px : 0px;
+        border-color: Palette.accent-background;
+        border-radius: 2px;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: across ? col-resize : row-resize;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                AccessFocus.keyboard = false;
+                fs.focus();
+            }
+        }
+        moved => {
+            if (self.pressed) {
+                set(position + sign * (across ? self.mouse-x - self.pressed-x : self.mouse-y - self.pressed-y));
+            }
+        }
+        double-clicked => { toggle(); }
+    }
+    fs := FocusScope {
+        focus-on-click: false;
+        capture-key-pressed(e) => {
+            AccessFocus.keyboard = true;
+            reject
+        }
+        focus-gained(reason) => {
+            if (reason == FocusReason.tab-navigation) { AccessFocus.keyboard = true; }
+        }
+        key-pressed(e) => {
+            let d = e.modifiers.shift ? 4 * step : step;
+            if ((across && e.text == Key.LeftArrow) || (!across && e.text == Key.UpArrow)) { set(position - sign * d); return accept; }
+            if ((across && e.text == Key.RightArrow) || (!across && e.text == Key.DownArrow)) { set(position + sign * d); return accept; }
+            if (e.text == Key.Home) { set(low); return accept; }
+            if (e.text == Key.End) { set(maximum); return accept; }
+            if (e.text == Key.Return) { toggle(); return accept; }
+            reject
+        }
+    }
+}

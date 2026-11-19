@@ -238,6 +238,30 @@ underlined, and in the accent colour only when it is readable (4.5:1). The
 `aria-current`: steps are buttons for screen readers, and "current page" is
 said in words.)
 
+## AccessSplitter
+
+A bar between two panes that you move (the WAI-ARIA APG
+[window splitter pattern](https://www.w3.org/WAI/ARIA/apg/patterns/windowsplitter/)).
+A Tab stop named after the primary pane ("Folders"), with that pane's size
+as its value, 0 (folded away) to 100 (as large as allowed). Left/Right
+(panes side by side) or Up/Down (above each other) move it, Shift further;
+Home makes the primary pane as small as allowed, End as large; Enter folds
+it away and brings it back where it was (`collapsible`), as does a double
+click; drag it with the mouse. The bar is yours to place, the panes follow
+its `position`:
+
+```slint
+HorizontalLayout {
+    Rectangle { width: split.position; /* folders */ }
+    split := AccessSplitter { label: "Folders"; position: 220px; minimum: 120px; maximum: 420px; }
+    Rectangle { /* files */ }
+}
+```
+
+`primary-first: false` when the primary pane is after the bar (right,
+below). (Slint 1.19 has no separator role: screen readers get a slider with
+the same value, minimum and maximum.)
+
 ## AccessFilter
 
 A quick filter field that announces "12 of 2000 shown" once you stop
@@ -271,6 +295,7 @@ Examples (`cargo run` in each):
 | `examples/notices` | alerts that stay, and a snackbar with "Undo" |
 | `examples/dialog` | asking before deleting, renaming in a dialog, an "about" box |
 | `examples/breadcrumb` | a breadcrumb trail above a folder |
+| `examples/splitter` | folders, files and a preview with bars between them |
 
 ## Translations
 
