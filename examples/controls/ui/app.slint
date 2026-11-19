@@ -54,6 +54,7 @@ export component AppWindow inherits Window {
             selected(i) => { chosen = "Clipboard: " + self.options[i]; }
         }
         Button { text: "Save"; }
-        Text { text: chosen; }
+        // (Hidden while empty: an empty text is an empty stop for screen readers.)
+        Text { text: chosen; visible: self.text != ""; }
     }
 }

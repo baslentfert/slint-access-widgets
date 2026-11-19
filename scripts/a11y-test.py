@@ -89,6 +89,33 @@ def all_nodes(a):
     return out
 
 
+def empty_nodes(app):
+    """Nodes a screen reader would stop on that say nothing: role "unknown"
+    (an element with `accessible-role: none` that still made it into the
+    tree) or a label without text. Each as "parent > node"."""
+    out = []
+
+    def walk(a, parent):
+        try:
+            role = a.getRoleName()
+            if role in ("unknown", "label") and not a.name.strip():
+                e = a.queryComponent().getExtents(pyatspi.WINDOW_COORDS)
+                # Hidden ones are skipped by screen readers; the announcers'
+                # live regions (1 px wide, empty until something is said)
+                # must stay.
+                showing = a.getState().contains(pyatspi.STATE_SHOWING)
+                if role == "unknown" or (showing and e.width > 4):
+                    out.append(f'{parent} > {role} "{a.name}" at {e.x},{e.y} {e.width}x{e.height}')
+            for c in a:
+                if c is not None:
+                    walk(c, f'{role} "{a.name[:30]}"')
+        except Exception:
+            pass
+
+    walk(app, "app")
+    return out
+
+
 def find_list(app, name):
     """The list or table called `name`."""
     for a in all_nodes(app):
@@ -104,7 +131,9 @@ def find_list(app, name):
 # Besides keys: "find" (an element with that text must exist, focused or
 # not), "gone" (it must not), "hover" (the mouse onto it), "unhover" (the
 # mouse into the window's top left corner), "wait" (1 s) or "wait N" (N s),
-# "selected" (in the list called <focus text>: "<selected> of <items>").
+# "selected" (in the list called <focus text>: "<selected> of <items>"),
+# "clean" (no empty or "unknown" nodes anywhere; also done at the start and
+# end of every scenario).
 SCENARIOS = {
     "gallery": [
         ("Tab", 'entry "Filter files"', None),
@@ -178,6 +207,7 @@ SCENARIOS = {
         ("Home", 'button "Name', None),
         ("Right", 'button "Size', None),
         ("Menu", 'list item "Sort ascending" #1', None),
+        ("clean", "", None),
         ("Down", 'list item "Sort descending" #2', None),
         ("End", 'list item "Owner" #13', None),
         ("Return", 'button "Size', "Owner, hidden"),
@@ -205,6 +235,7 @@ SCENARIOS = {
         ("space", '"holiday-00.mp4, 6 MB, ticked" #1 selected', "1 ticked"),
         ("Down", 'list item "invoice-01.pdf', None),
         ("space", "ticked", "2 ticked"),
+        ("clean", "", None),
         ("Tab", 'button "Send 2 files"', None),
         ("Return", 'button "Send"', "2 files are being sent"),
         ("Tab", 'button "⏸ Pause"', None),
@@ -221,6 +252,7 @@ SCENARIOS = {
         ("t", 'entry "Computer"', None),
         ("wait", 'entry "Computer"', "3 suggestions"),
         ("Down", 'list item "test-vm-01" #1', None),
+        ("clean", "", None),
         ("Down", 'list item "test-vm-02" #2', None),
         ("End", 'list item "test-vm-03" #3', None),
         ("Home", 'list item "test-vm-01" #1', None),
@@ -250,6 +282,7 @@ SCENARIOS = {
         ("Tab", 'button "More about Share the clipboard" no-desc', None),
         # Opens; the explanation is announced; the focus stays on the button.
         ("Return", 'button "More about Share the clipboard" desc="What you copy', "What you copy on one computer"),
+        ("clean", "", None),
         ("Escape", 'button "More about Share the clipboard" no-desc', None),
         ("space", 'button "More about Share the clipboard" desc="What you copy', "What you copy"),
         ("space", 'button "More about Share the clipboard" no-desc', None),
@@ -286,7 +319,7 @@ SCENARIOS = {
         ("Right", 'desc="level 3, expanded"', "expanded, 3 items"),
         ("Right", 'list item "plan.pdf" #5', None),
         # Folder and file icons are decoration: not even an empty node.
-        ("gone", 'unknown ""', None),
+        ("clean", "", None),
         # Left: up to the parent, then closes it, then up again.
         ("Left", 'list item "2026" #4', None),
         ("Left", 'desc="level 3, collapsed"', "collapsed"),
@@ -308,6 +341,7 @@ SCENARIOS = {
         ("shift+Down", 'list item "Created" #3 selected', "2 selected"),
         # Enter moves both; the focus stays, on the item after them.
         ("Return", 'list item "Owner" #2 selected', "Moved to Shown: 2 items"),
+        ("clean", "", None),
         ("Return", 'list item "Permissions" #2 selected', "Moved to Shown: 1 item"),
         # Type-ahead.
         ("t", 'list item "Tags"', None),
@@ -344,10 +378,11 @@ SCENARIOS = {
         ("find", '"Error: 3 files could not be sent"', None),
         ("find", 'button "Close message: 3 files could not be sent"', None),
         # The icons are decoration: not even an empty node.
-        ("gone", 'unknown ""', None),
+        ("clean", "", None),
         # A snackbar with a button: announced, never takes the focus...
         ("Tab", 'button "Delete a file"', None),
         ("Return", 'button "Delete a file"', "File deleted. Undo is available"),
+        ("clean", "", None),
         ("find", '"File deleted"', None),
         # ... but Tab reaches it, and it stays (it has a button).
         ("Tab", 'button "Copy link"', None),
@@ -380,6 +415,7 @@ SCENARIOS = {
         ("Tab", 'list item "report-000000.pdf, Size ', None),
         # Far away: "Loading…" first, then it arrives (0.4 s) in place.
         ("End", "list item", None),
+        ("clean", "", None),
         ("wait", 'list item "song-099999.mp3, Size ', None),
         ("Home", 'list item "report-000000.pdf', None),
         # A search on the server: the new total is announced.
@@ -430,7 +466,8 @@ def run(name):
         subprocess.run(["xdotool", "windowfocus", "--sync", win[-1]])
         pump(1.0)
         heard.clear()
-        for key, want_focus, want_heard in SCENARIOS[name]:
+        # Every scenario starts and ends with no empty nodes in the window.
+        for key, want_focus, want_heard in [("clean", "", None)] + SCENARIOS[name] + [("clean", "", None)]:
             if key == "clipboard":
                 # The text on the clipboard must contain `want_focus` and
                 # have three lines (three rows).
@@ -462,6 +499,16 @@ def run(name):
                 ok = (f is not None) == (key == "find")
                 print(f"{'ok  ' if ok else 'FAIL'} {key:<10} {describe(f) if f else want_focus + ' (not there)'}")
                 if not ok:
+                    return False
+                continue
+            if key == "clean":
+                # No empty nodes anywhere in the window (decoration that
+                # still reaches screen readers).
+                empty = empty_nodes(app)
+                print(f"{'ok  ' if not empty else 'FAIL'} clean      {len(empty)} empty nodes")
+                for e in empty[:20]:
+                    print(f"     {e}")
+                if empty:
                     return False
                 continue
             if key == "selected":

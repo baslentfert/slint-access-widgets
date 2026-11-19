@@ -96,7 +96,10 @@ export component AccessCheckCell inherits Rectangle {
     callback toggled();
     min-width: 24px;
     min-height: 24px;
-    accessible-role: none;
+    // No `accessible-role: none` on these roots: Slint takes a role set on
+    // a component's root as "set" for every place the component is used and
+    // then makes an empty "unknown" node there. A Rectangle has no role of
+    // its own, so leaving it out keeps the cells out of the tree.
 
     box := Rectangle {
         width: 16px;
@@ -131,7 +134,6 @@ export component AccessProgressCell inherits Rectangle {
     in property <bool> muted;
     in property <brush> text-color: Palette.foreground;
     min-width: 120px;
-    accessible-role: none;
 
     HorizontalLayout {
         spacing: 8px;
@@ -168,7 +170,6 @@ export component AccessTextCell inherits Rectangle {
     in property <TextHorizontalAlignment> align: left;
     // Pass the row's `text-color`, so text stays readable on a selected row.
     in property <brush> text-color: Palette.foreground;
-    accessible-role: none;
     Text {
         x: 8px;
         width: parent.width - 16px;

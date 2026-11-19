@@ -77,7 +77,7 @@ export component AppWindow inherits Window {
         HorizontalBox {
             padding: 0;
             Button { text: @tr("Go to the table"); clicked => { table.focus-current(); } }
-            Text { text: status; vertical-alignment: center; }
+            Text { text: status; vertical-alignment: center; visible: self.text != ""; }
         }
     }
     news := AccessAnnouncer { }

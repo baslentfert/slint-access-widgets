@@ -233,13 +233,22 @@ titles, the table's name) comes from your app.
 `scripts/a11y-test.py` starts each example in its own invisible X display
 with its own accessibility bus (`scripts/headless.sh`), presses keys and
 checks after every key where the focus is and what is announced, also
-what lands on the clipboard:
+what lands on the clipboard; and that no empty or "unknown" nodes reach a
+screen reader (decoration that should be silent):
 
 ```
 scripts/headless.sh python3 -I scripts/a11y-test.py
 ```
 
-`scripts/shot.sh` makes screenshots the same way. This is becoming the
+`scripts/shot.sh` makes screenshots the same way; `scripts/scroll-cost.sh`
+measures what scrolling costs.
+
+A tip for your own components: `accessible-role: none` on a component's
+root does *not* keep it away from screen readers in Slint 1.19; every place
+the component is used becomes an empty "unknown" node. Leave the role out
+on a root that is a `Rectangle`, `Path` or layout (they have no role of
+their own), and set `accessible-role: none` where a `Text` or `Image` is
+used. This is becoming the
 `slint-a11y-check` crate.
 
 ## Not yet

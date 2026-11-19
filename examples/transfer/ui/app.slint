@@ -147,6 +147,7 @@ export component AppWindow inherits Window {
             }
             Text {
                 text: summary;
+                visible: self.text != "";
                 vertical-alignment: center;
                 horizontal-stretch: 1;
                 wrap: word-wrap;

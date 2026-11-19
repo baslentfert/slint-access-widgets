@@ -27,6 +27,6 @@ export component AppWindow inherits Window {
             find(p, f) => { root.find(p, f) }
             activated(i) => { root.activated(i); }
         }
-        Text { text: status; }
+        Text { text: status; visible: self.text != ""; }
     }
 }

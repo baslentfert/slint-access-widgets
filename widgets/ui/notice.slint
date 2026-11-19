@@ -68,7 +68,7 @@ component Icon inherits Rectangle {
     // A different shape per kind too: round, a diamond for warnings.
     border-radius: severity == AccessSeverity.warning ? 3px : 10px;
     background: tint;
-    accessible-role: none;
+    // (Decoration: no role here, see AccessCheckCell in cells.slint.)
     Text {
         text: Look.glyph(severity);
         color: mark;
@@ -171,9 +171,7 @@ export component AccessAlert inherits Rectangle {
         VerticalLayout {
             alignment: start;
             padding-top: 1px;
-            // (role none here as well: on the component's root alone it
-            // still showed up as an empty node over AT-SPI)
-            Icon { severity: root.severity; accessible-role: none; }
+            Icon { severity: root.severity; }
         }
         VerticalLayout {
             spacing: 2px;
@@ -284,7 +282,7 @@ export component AccessSnackbar inherits Rectangle {
                 spacing: 10px;
                 if severity != AccessSeverity.info: VerticalLayout {
                     alignment: center;
-                    Icon { severity: root.severity; mark: Palette.foreground; tint: Palette.background; accessible-role: none; }
+                    Icon { severity: root.severity; mark: Palette.foreground; tint: Palette.background; }
                 }
                 Text {
                     text: root.text;
