@@ -188,6 +188,42 @@ only by colour (WCAG 1.4.1).
   there is always time to reach it. When it closes with the focus inside,
   `had-focus` is true: put the focus back where the user was (`closed`).
 
+## AccessDialog
+
+A modal dialog (the WAI-ARIA APG
+[dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/)).
+Place it over the whole window, after everything else, and open it:
+
+```slint
+dlg := AccessDialog {
+    width: parent.width;
+    height: parent.height;
+    title: "Delete holiday.mp4?";
+    description: "You can get it back from the bin.";
+    primary-text: "Delete";
+    initial-focus: AccessDialogFocus.cancel;
+    accepted => { … }
+}
+// dlg.open();
+```
+
+- The focus goes in when it opens: to the first element that takes it, or
+  to Cancel (`initial-focus: cancel`, for what can't be undone) or the
+  primary button.
+- Tab and Shift+Tab stay inside and go round; Escape closes it as Cancel
+  (unless `escape-closes: false`); the focus then goes back to what opened
+  it.
+- The rest of the window is dimmed and out of reach for mouse and keyboard.
+- A screen reader hears the title and the description when the focus goes
+  in. (Slint 1.19 has no dialog role: it is a group; browse modes can still
+  read what is behind it. See `docs/research-dialog.md`.)
+- The primary button and Cancel are in the platform's order, as in Slint's
+  own `Dialog` (macOS: Cancel, then the primary button). `cancel-text: ""`
+  leaves Cancel out; `closes-on-accept: false` keeps it open after the
+  primary button (to check the input first).
+- Your content goes inside, as children. It lives in a popup, so it can't be
+  read from outside: let it hand out its values (`edited(t) => { name = t; }`).
+
 ## AccessFilter
 
 A quick filter field that announces "12 of 2000 shown" once you stop
@@ -219,6 +255,7 @@ Examples (`cargo run` in each):
 | `examples/tree` | a folder tree whose folders load when opened |
 | `examples/transfer-list` | choosing columns: from "Available" to "Shown", in order |
 | `examples/notices` | alerts that stay, and a snackbar with "Undo" |
+| `examples/dialog` | asking before deleting, renaming in a dialog, an "about" box |
 
 ## Translations
 

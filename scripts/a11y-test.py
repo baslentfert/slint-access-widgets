@@ -131,7 +131,9 @@ def find_list(app, name):
 # Besides keys: "find" (an element with that text must exist, focused or
 # not), "gone" (it must not), "hover" (the mouse onto it), "unhover" (the
 # mouse into the window's top left corner), "wait" (1 s) or "wait N" (N s),
-# "selected" (in the list called <focus text>: "<selected> of <items>"),
+# "click <text>" (a mouse click on the element with that text, then the
+# focus check), "selected" (in the list called <focus text>: "<selected> of
+# <items>"),
 # "clean" (no empty or "unknown" nodes anywhere; also done at the start and
 # end of every scenario).
 SCENARIOS = {
@@ -409,6 +411,43 @@ SCENARIOS = {
         ("wait 7", 'button "Copy link"', None),
         ("gone", '"Link copied"', None),
     ],
+    "dialog": [
+        ("Tab", 'button "Delete…"', None),
+        # Opens: the focus goes in, here to Cancel (deleting can't be undone);
+        # the dialog is a group named after its title, with its description.
+        ("Return", 'button "Cancel"', None),
+        ("find",'panel "Delete holiday.mp4?" desc="It goes to the bin', None),
+        ("clean", "", None),
+        # Tab and Shift+Tab stay inside, round.
+        ("Tab", 'button "Delete"', None),
+        ("Tab", 'button "Cancel"', None),
+        ("shift+Tab", 'button "Delete"', None),
+        ("shift+Tab", 'button "Cancel"', None),
+        # The rest of the window is out of reach: a click on it does nothing.
+        ("click button \"About\"", 'button "Cancel"', None),
+        ("gone", 'panel "About this example"', None),
+        # Escape closes it; the focus is back on the button that opened it.
+        ("Escape", 'button "Delete…"', None),
+        ("gone", 'panel "Delete holiday.mp4?"', None),
+        ("find", 'label "Not deleted"', None),
+        # With content: the focus goes to the first field.
+        ("Tab", 'button "Rename…"', None),
+        ("Return", 'entry "New name"', None),
+        ("text", "holiday.mp4", None),
+        ("Tab", 'check box "Keep the extension"', None),
+        ("Tab", 'button "Rename"', None),
+        ("Tab", 'button "Cancel"', None),
+        ("Tab", 'entry "New name"', None),
+        ("shift+Tab", 'button "Cancel"', None),
+        ("shift+Tab", 'button "Rename"', None),
+        ("Return", 'button "Rename…"', None),
+        ("find", 'label "Renamed to holiday.mp4"', None),
+        # Only a button: it gets the focus; Escape closes.
+        ("Tab", 'button "About"', None),
+        ("Return", 'button "Close"', None),
+        ("Tab", 'button "Close"', None),
+        ("Escape", 'button "About"', None),
+    ],
     "remote": [
         ("Tab", 'entry "Search on the server"', None),
         ("Tab", 'button "Name" #1', None),
@@ -539,6 +578,15 @@ def run(name):
                 continue
             if key.startswith("wait"):
                 pump(float(key[4:] or 1))
+            elif key.startswith("click "):
+                # A mouse click in the middle of the element with that text.
+                f = find(app, key[6:])
+                if f is None:
+                    print(f"FAIL click      {key[6:]!r} not there")
+                    return False
+                e = f.queryComponent().getExtents(pyatspi.DESKTOP_COORDS)
+                subprocess.run(["xdotool", "mousemove", str(e.x + e.width // 2), str(e.y + e.height // 2), "click", "1"], check=True)
+                pump(0.5)
             else:
                 subprocess.run(["xdotool", "key", "--clearmodifiers", key], check=True)
                 t0 = time.time()

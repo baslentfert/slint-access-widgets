@@ -1,0 +1,65 @@
+// Modal dialogs: one that asks before deleting (the focus on Cancel), one
+// with a text field (the focus in the field), one that only informs.
+
+import { AccessDialog, AccessDialogFocus } from "@access-widgets";
+import { Button, LineEdit, CheckBox, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Dialog";
+    preferred-width: 600px;
+    preferred-height: 420px;
+    property <string> status;
+    property <string> name: "holiday.mp4";
+    property <string> new-name;
+
+    VerticalBox {
+        alignment: start;
+        Text { text: "File: " + name; }
+        HorizontalBox {
+            padding: 0;
+            Button { text: "Delete…"; clicked => { ask-delete.open(); } }
+            Button { text: "Rename…"; clicked => { new-name = name; rename.open(); } }
+            Button { text: "About"; clicked => { about.open(); } }
+        }
+        // (Hidden while empty: an empty text is an empty stop for screen readers.)
+        Text { text: status; visible: self.text != ""; }
+    }
+
+    ask-delete := AccessDialog {
+        width: parent.width;
+        height: parent.height;
+        title: "Delete " + name + "?";
+        description: "It goes to the bin of the other computer; you can get it back from there.";
+        primary-text: "Delete";
+        // Can't be undone here: the focus starts on Cancel.
+        initial-focus: AccessDialogFocus.cancel;
+        accepted => { status = name + " deleted"; }
+        cancelled => { status = "Not deleted"; }
+    }
+
+    rename := AccessDialog {
+        width: parent.width;
+        height: parent.height;
+        title: "Rename";
+        primary-text: "Rename";
+        accepted => { name = new-name; status = "Renamed to " + name; }
+        cancelled => { status = "Not renamed"; }
+        // (What is inside the dialog can't be read from outside it: Slint
+        // shows it in a popup. So it hands its value out itself.)
+        LineEdit {
+            accessible-label: "New name";
+            text: name;
+            edited(t) => { new-name = t; }
+        }
+        CheckBox { text: "Keep the extension"; checked: true; }
+    }
+
+    about := AccessDialog {
+        width: parent.width;
+        height: parent.height;
+        title: "About this example";
+        description: "Modal dialogs that keyboards and screen readers can use: the focus goes in, stays in, and comes back.";
+        cancel-text: "";
+        primary-text: "Close";
+    }
+}

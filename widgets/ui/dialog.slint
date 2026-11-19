@@ -1,0 +1,220 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// A modal dialog, after the WAI-ARIA APG Dialog (Modal) pattern
+// (https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/); see
+// docs/research-dialog.md.
+//
+// - Opening moves the focus into the dialog: to the first thing in it that
+//   takes the focus (put the field to start in first), or to the primary
+//   or cancel button (`initial-focus`).
+// - Tab and Shift+Tab stay inside: after the last button comes the first
+//   element again, and the other way round.
+// - Escape closes it (as Cancel), unless `escape-closes` is false.
+// - Closing puts the focus back on what had it before, usually the button
+//   that opened the dialog.
+// - The rest of the window is out of reach while it is open: it is covered
+//   (dimmed), clicks don't get through, and Tab never leaves the dialog.
+// - Screen readers get a group named after the title, with the description
+//   as its description (Slint 1.19 has no dialog role; see the notes).
+// - The buttons: the primary one and Cancel, in the order of the platform
+//   (macOS: Cancel, then the primary button on the right; elsewhere the
+//   primary button first, as in Slint's own `Dialog`).
+//
+// Place it over your whole window, after everything else:
+//     dlg := AccessDialog { width: parent.width; height: parent.height; title: "…"; … }
+// and call `dlg.open()`.
+
+import { Palette, Button } from "std-widgets.slint";
+
+export enum AccessDialogFocus { first, primary, cancel }
+
+export global AccessDialogTexts {
+    in-out property <string> ok: @tr("access-widgets" => "OK");
+    in-out property <string> cancel: @tr("access-widgets" => "Cancel");
+}
+
+export component AccessDialog {
+    // The title, also the dialog's name for screen readers ("Delete 3 files?").
+    in property <string> title;
+    // A short explanation under the title, also the dialog's description
+    // for screen readers; may be empty. Longer or structured content (lists,
+    // several paragraphs) goes inside, as children, instead.
+    in property <string> description;
+    // The primary button, e.g. "Delete"; it says what happens.
+    in property <string> primary-text: AccessDialogTexts.ok;
+    in property <bool> primary-enabled: true;
+    // The cancel button; empty = none (then Escape still cancels, unless
+    // `escape-closes` is false).
+    in property <string> cancel-text: AccessDialogTexts.cancel;
+    // Escape closes the dialog (as Cancel).
+    in property <bool> escape-closes: true;
+    // Where the focus goes when it opens: the first element that takes it
+    // (the default), or a button. For something that can't be undone,
+    // `cancel` (the least destructive choice, as the APG advises).
+    in property <AccessDialogFocus> initial-focus: first;
+    // Close after the primary button. False: your `accepted` handler closes
+    // it (`close()`), e.g. after checking the input.
+    in property <bool> closes-on-accept: true;
+    in property <length> dialog-width: 440px;
+
+    out property <bool> is-open: popup.is-open;
+
+    // The primary button.
+    callback accepted();
+    // Cancel or Escape.
+    callback cancelled();
+
+    public function open() { popup.show(); }
+    public function close() { popup.close(); }
+
+    property <bool> mac: Platform.os == OperatingSystemType.macos || Platform.os == OperatingSystemType.ios;
+
+    popup := PopupWindow {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        close-policy: no-auto-close;
+
+        // The rest of the window: dimmed, and clicks stop here.
+        Rectangle {
+            background: #0007;
+            TouchArea { }
+        }
+
+        box := Rectangle {
+            width: min(root.width - 32px, root.dialog-width);
+            height: min(root.height - 32px, layout.preferred-height);
+            x: (parent.width - self.width) / 2;
+            y: max(16px, (parent.height - self.height) / 3);
+            background: Palette.background;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: Palette.border;
+            drop-shadow-blur: 24px;
+            drop-shadow-color: #0006;
+            clip: true;
+
+            accessible-role: groupbox;
+            accessible-label: root.title;
+            accessible-description: root.description;
+
+            // Escape anywhere inside.
+            keys := FocusScope {
+                focus-on-click: false;
+                focus-on-tab-navigation: false;
+                key-pressed(e) => {
+                    if (e.text == Key.Escape && root.escape-closes) {
+                        do-cancel();
+                        return accept;
+                    }
+                    reject
+                }
+
+                // Shift+Tab from the first element lands here: on to the
+                // last button.
+                back-stop := FocusScope {
+                    x: 0;
+                    y: 0;
+                    width: 1px;
+                    height: 1px;
+                    focus-on-click: false;
+                    focus-gained => { focus-last(); }
+                }
+                // Asked for the focus, it refuses, and Slint gives it to the
+                // next element that takes it: the first one in the dialog.
+                first-finder := FocusScope {
+                    x: 0;
+                    y: 0;
+                    width: 1px;
+                    height: 1px;
+                    enabled: false;
+                }
+
+                layout := VerticalLayout {
+                    padding: 20px;
+                    spacing: 12px;
+                    Text {
+                        text: root.title;
+                        font-size: 1.25rem;
+                        font-weight: 700;
+                        color: Palette.foreground;
+                        wrap: word-wrap;
+                        // (The group's name already.)
+                        accessible-role: none;
+                    }
+                    if root.description != "": Text {
+                        text: root.description;
+                        color: Palette.foreground;
+                        wrap: word-wrap;
+                        // (The group's description already.)
+                        accessible-role: none;
+                    }
+                    @children
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: 8px;
+                        padding-top: 8px;
+                        // Left: Cancel on macOS, else the primary button.
+                        left := Button {
+                            text: mac ? root.cancel-text : root.primary-text;
+                            primary: !mac;
+                            enabled: mac || root.primary-enabled;
+                            visible: !mac || root.cancel-text != "";
+                            clicked => { if (mac) { do-cancel(); } else { do-accept(); } }
+                        }
+                        right := Button {
+                            text: mac ? root.primary-text : root.cancel-text;
+                            primary: mac;
+                            enabled: !mac || root.primary-enabled;
+                            visible: mac || root.cancel-text != "";
+                            clicked => { if (mac) { do-accept(); } else { do-cancel(); } }
+                        }
+                    }
+                }
+
+                // Tab after the last button lands here: back to the first.
+                FocusScope {
+                    x: 0;
+                    y: 0;
+                    width: 1px;
+                    height: 1px;
+                    focus-on-click: false;
+                    focus-gained => { first-finder.focus(); }
+                }
+            }
+
+            // The focus goes in just after the popup is shown (Slint first
+            // takes it from the window then, to give it back on close).
+            Timer {
+                interval: 1ms;
+                running: true;
+                triggered => {
+                    self.running = false;
+                    if (root.initial-focus == AccessDialogFocus.primary) {
+                        focus-primary();
+                    } else if (root.initial-focus == AccessDialogFocus.cancel && root.cancel-text != "") {
+                        if (mac) { left.focus(); } else { right.focus(); }
+                    } else {
+                        first-finder.focus();
+                    }
+                }
+            }
+        }
+
+        function focus-primary() {
+            if (mac) { right.focus(); } else { left.focus(); }
+        }
+        function focus-last() {
+            if (mac || root.cancel-text != "") { right.focus(); } else { left.focus(); }
+        }
+        function do-accept() {
+            if (root.closes-on-accept) { popup.close(); }
+            root.accepted();
+        }
+        function do-cancel() {
+            popup.close();
+            root.cancelled();
+        }
+    }
+}
