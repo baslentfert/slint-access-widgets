@@ -1,0 +1,126 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// A breadcrumb trail: where you are, as the way down to it ("Home ›
+// Documents › Projects"), after the WAI-ARIA APG Breadcrumb pattern
+// (https://www.w3.org/WAI/ARIA/apg/patterns/breadcrumb/):
+//
+// - A navigation landmark with a name ("Breadcrumb", or your own), so
+//   screen readers can list and jump to it.
+// - Every step up is a link: a Tab stop; Enter, Space or a click goes there
+//   (`activated(index)`).
+// - The last step is the current page, said as such ("Projects, current
+//   page") and shown in bold, not as a link. It is a Tab stop too (as in the
+//   APG example), so the focus has somewhere to stay when you go up: the
+//   step you chose becomes the current page, under the focus.
+// - The separators are decoration: screen readers don't hear them.
+//
+// Slint 1.19 has no link role and no `aria-current`: the steps are buttons
+// for screen readers, and "current page" is said in words.
+
+import { Palette } from "std-widgets.slint";
+import { AccessFocus } from "focus.slint";
+import { AccessColors } from "cells.slint";
+
+export global AccessBreadcrumbTexts {
+    in-out property <string> breadcrumb: @tr("access-widgets" => "Breadcrumb");
+    pure public function current(page: string) -> string {
+        @tr("access-widgets" => "{}, current page", page)
+    }
+}
+
+component Crumb inherits Rectangle {
+    in property <string> text;
+    in property <bool> current;
+    callback activated();
+
+    min-height: max(24px, t.preferred-height + 8px);
+    min-width: t.preferred-width + 8px;
+
+    accessible-role: button;
+    accessible-label: current ? AccessBreadcrumbTexts.current(text) : text;
+    accessible-action-default => { if (!current) { activated(); } }
+
+    touch := TouchArea {
+        enabled: !current;
+        mouse-cursor: pointer;
+        clicked => {
+            AccessFocus.keyboard = false;
+            fs.focus();
+            activated();
+        }
+    }
+    fs := FocusScope {
+        focus-on-click: false;
+        capture-key-pressed(e) => {
+            AccessFocus.keyboard = true;
+            reject
+        }
+        focus-gained(reason) => {
+            if (reason == FocusReason.tab-navigation) { AccessFocus.keyboard = true; }
+        }
+        key-pressed(e) => {
+            if (!current && (e.text == Key.Return || e.text == " ")) { activated(); return accept; }
+            reject
+        }
+    }
+    t := Text {
+        x: 4px;
+        text: root.text;
+        // A link: underlined (not by colour alone, WCAG 1.4.1), in the
+        // accent colour when that is readable (4.5:1, WCAG 1.4.3), else in
+        // the text colour. The current page: bold, in the text colour.
+        color: !current && AccessColors.contrast(Palette.accent-background, Palette.background) >= 4.5 ? Palette.accent-background : Palette.foreground;
+        font-weight: current ? 700 : 400;
+        vertical-alignment: center;
+        accessible-role: none;
+    }
+    // The underline (Slint's Text has none of its own).
+    Rectangle {
+        visible: !current;
+        x: t.x;
+        y: (parent.height + t.preferred-height) / 2 - 2px;
+        width: t.preferred-width;
+        height: touch.has-hover ? 2px : 1px;
+        background: t.color;
+    }
+    // Visible focus (WCAG 2.4.7), after keyboard use.
+    Rectangle {
+        border-width: fs.has-focus && AccessFocus.show ? 2px : 0px;
+        border-color: Palette.accent-background;
+        border-radius: 3px;
+    }
+}
+
+export component AccessBreadcrumb inherits Rectangle {
+    // The way down, from the top to the current page.
+    in property <[string]> items;
+    // The landmark's name; one per window is usual, then the default is fine.
+    in property <string> label: AccessBreadcrumbTexts.breadcrumb;
+    // A step up was chosen (0 = the top). Shorten `items` to it.
+    callback activated(index: int);
+
+    accessible-role: navigation;
+    accessible-label: label;
+
+    HorizontalLayout {
+        alignment: start;
+        spacing: 2px;
+        // (One element per step, also for the current page: when the trail
+        // gets shorter, the step that had the focus keeps it.)
+        for item[i] in items: HorizontalLayout {
+            spacing: 2px;
+            Crumb {
+                text: item;
+                current: i == items.length - 1;
+                activated => { root.activated(i); }
+            }
+            Text {
+                visible: i < items.length - 1;
+                text: "›";
+                color: Palette.foreground;
+                vertical-alignment: center;
+                accessible-role: none;
+            }
+        }
+    }
+}

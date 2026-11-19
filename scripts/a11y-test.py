@@ -448,6 +448,23 @@ SCENARIOS = {
         ("Tab", 'button "Close"', None),
         ("Escape", 'button "About"', None),
     ],
+    "breadcrumb": [
+        # A navigation landmark with a name; every step a Tab stop.
+        ("find", 'landmark "Breadcrumb"', None),
+        ("Tab", 'button "Home"', None),
+        ("Tab", 'button "Documents"', None),
+        ("Tab", 'button "Projects"', None),
+        # The last one is the current page, said as such; Enter does nothing.
+        ("Tab", 'button "2026, current page"', None),
+        ("Return", 'button "2026, current page"', None),
+        # Up: the chosen step becomes the current page, and keeps the focus.
+        ("shift+Tab", 'button "Projects"', None),
+        ("Return", 'button "Projects, current page"', None),
+        ("gone", 'button "2026', None),
+        ("find", 'label "Folders in Projects:"', None),
+        ("shift+Tab", 'button "Documents"', None),
+        ("space", 'button "Documents, current page"', None),
+    ],
     "remote": [
         ("Tab", 'entry "Search on the server"', None),
         ("Tab", 'button "Name" #1', None),

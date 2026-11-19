@@ -26,6 +26,16 @@ msgid_plural "{n} suggestions"
 msgstr[0] ""
 msgstr[1] ""
 
+#: ui/breadcrumb.slint:25
+msgctxt "access-widgets"
+msgid "Breadcrumb"
+msgstr ""
+
+#: ui/breadcrumb.slint:27
+msgctxt "access-widgets"
+msgid "{}, current page"
+msgstr ""
+
 #: ui/dialog.slint:32
 msgctxt "access-widgets"
 msgid "OK"

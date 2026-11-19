@@ -1,0 +1,29 @@
+// A breadcrumb trail above a folder: the steps up are links, the last one
+// is the current folder.
+
+import { AccessBreadcrumb } from "@access-widgets";
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Breadcrumb";
+    preferred-width: 560px;
+    preferred-height: 300px;
+    in-out property <[string]> path: ["Home", "Documents", "Projects", "2026"];
+    // The folders inside the current one (made up).
+    property <[string]> inside: path.length < 6 ? ["Plans", "Photos"] : [];
+    callback go-up(int);
+    callback go-into(string);
+
+    VerticalBox {
+        alignment: start;
+        AccessBreadcrumb {
+            items: path;
+            activated(i) => { root.go-up(i); }
+        }
+        Text { text: "Folders in " + path[path.length - 1] + ":"; }
+        for f in inside: Button {
+            text: f;
+            clicked => { root.go-into(f); }
+        }
+    }
+}

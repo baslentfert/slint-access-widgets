@@ -224,6 +224,20 @@ dlg := AccessDialog {
 - Your content goes inside, as children. It lives in a popup, so it can't be
   read from outside: let it hand out its values (`edited(t) => { name = t; }`).
 
+## AccessBreadcrumb
+
+Where you are, as the way down to it: "Home › Documents › Projects" (the
+WAI-ARIA APG [breadcrumb pattern](https://www.w3.org/WAI/ARIA/apg/patterns/breadcrumb/)).
+A navigation landmark ("Breadcrumb", or your `label`) that screen readers
+can list and jump to. Every step up is a link and a Tab stop: Enter, Space
+or a click goes there (`activated(index)`; shorten `items` to it). The last
+step is the current page, bold and said as "Projects, current page"; the
+step you choose becomes the current page and keeps the focus. Links are
+underlined, and in the accent colour only when it is readable (4.5:1). The
+"›" separators are silent. (Slint 1.19 has no link role and no
+`aria-current`: steps are buttons for screen readers, and "current page" is
+said in words.)
+
 ## AccessFilter
 
 A quick filter field that announces "12 of 2000 shown" once you stop
@@ -256,6 +270,7 @@ Examples (`cargo run` in each):
 | `examples/transfer-list` | choosing columns: from "Available" to "Shown", in order |
 | `examples/notices` | alerts that stay, and a snackbar with "Undo" |
 | `examples/dialog` | asking before deleting, renaming in a dialog, an "about" box |
+| `examples/breadcrumb` | a breadcrumb trail above a folder |
 
 ## Translations
 
