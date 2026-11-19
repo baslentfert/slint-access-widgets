@@ -132,7 +132,7 @@ export component AccessTree inherits Rectangle {
             find(p, f) => { root.find(p, f) }
 
             for k in view.slots : r := AccessRow {
-                property <int> n: view.first + k;
+                property <int> n: view.row-of(k);
                 property <AccessTreeRow> node: rows[n];
                 state: view.state;
                 index: n;

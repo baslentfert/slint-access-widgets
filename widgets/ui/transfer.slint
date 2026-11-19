@@ -202,7 +202,7 @@ component TransferPane inherits VerticalLayout {
             find(p, f) => { root.find(p, f) }
 
             for k in view.slots : r := AccessRow {
-                property <int> n: view.first + k;
+                property <int> n: view.row-of(k);
                 state: view.state;
                 index: n;
                 label: items[n];

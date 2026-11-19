@@ -98,7 +98,7 @@ export global AccessTableTexts {
     }
 }
 
-// The scroll area. Put `for k in view.slots : AccessRow { index: view.first + k; … }`
+// The scroll area. Put `for k in view.slots : AccessRow { index: view.row-of(k); … }`
 // inside; see `AccessTable` below for a full example.
 export component AccessTableView inherits ScrollView {
     // What a screen reader calls this table, e.g. "Downloads".
@@ -115,7 +115,25 @@ export component AccessTableView inherits ScrollView {
     in-out property <int> current: count > 0 ? 0 : -1;
     // Number of row slots: only these exist.
     out property <int> slots: min(count, ceil(self.visible-height / row-height) + 1);
-    out property <int> first: max(0, min(count - slots, floor(-self.content-y / row-height)));
+    // The first row on screen. Not a binding on `content-y`: that changes
+    // on every frame while scrolling (Slint animates each wheel step), and
+    // everything that depends on it would be worked out anew on every frame,
+    // all the cells' text laid out again included. Set only when the row
+    // really changes (setting the same value changes nothing).
+    out property <int> first;
+    property <int> first-on-screen: max(0, min(count - slots, floor(-self.content-y / row-height)));
+    changed first-on-screen => { first = first-on-screen; }
+    init => {
+        first = first-on-screen;
+        rows-needed(first, slots);
+    }
+    // The row shown by slot `k`. Slots keep their row while it is on
+    // screen: one row further down, only the slot of the row that scrolled
+    // off takes the new one; the others don't change (no new text to lay
+    // out, and a focused row keeps its element).
+    pure public function row-of(k: int) -> int {
+        slots <= 0 ? first + k : first + mod(k - mod(first, slots) + slots, slots)
+    }
     out property <AccessTableState> state: {
         first: first,
         current: current,
@@ -162,7 +180,6 @@ export component AccessTableView inherits ScrollView {
     property <int> needed-count: slots;
     changed needed-first => { rows-needed(first, slots); }
     changed needed-count => { rows-needed(first, slots); }
-    init => { rows-needed(first, slots); }
 
     // Type-ahead: return the first row at or after `from` whose text starts
     // with `prefix` (case-insensitive), as index + 1; 0 = none. Without a
@@ -1147,7 +1164,7 @@ export component AccessTable inherits Rectangle {
             rows-needed(f, c) => { root.rows-needed(f, c); }
 
             for k in view.slots : r := AccessRow {
-                property <int> n: view.first + k;
+                property <int> n: view.row-of(k);
                 property <[StandardListViewItem]> cells: rows[n];
                 property <bool> waiting: cells.length == 0;
                 state: view.state;
@@ -1212,7 +1229,10 @@ export component AccessTable inherits Rectangle {
                         property <bool> cut: t.preferred-width > t.width + 0.5px;
                         property <bool> by-mouse: r.hovering && r.hover-x >= self.x && r.hover-x < self.x + self.width;
                         property <bool> by-key: c == current-column && n == view.current && view.active && AccessFocus.show;
-                        property <bool> wants-tip: cut && !waiting && (by-mouse || by-key);
+                        // `cut` last: measuring the whole text is costly,
+                        // and only the hovered or chosen cell needs it (not
+                        // every cell on every scroll step).
+                        property <bool> wants-tip: !waiting && (by-mouse || by-key) && cut;
                         property <int> tip-id: n * 1000 + c;
                         // The cell chosen with Left/Right scrolls into view
                         // sideways.

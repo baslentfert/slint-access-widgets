@@ -67,7 +67,7 @@ export component AppWindow inherits Window {
                     label: @tr("Files to send");
                     count: items.length;
                     for k in view.slots : r := AccessRow {
-                        property <int> n: view.first + k;
+                        property <int> n: view.row-of(k);
                         property <Item> it: items[n];
                         state: view.state;
                         index: n;
